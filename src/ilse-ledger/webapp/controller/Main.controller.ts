@@ -144,6 +144,7 @@ export default class Main extends Controller {
       new JSONModel({
         busy: true,
         records: [],
+        askRecords: [],
         dossier: [],
         moments: [],
         summary: { suspect: "", marked: "", ask: "" },
@@ -283,9 +284,14 @@ export default class Main extends Controller {
         }),
       );
 
-      const records = this.toRecords(findings, markInfo, bundle);
+      const all = this.toRecords(findings, markInfo, bundle);
+      // "Verdacht" holds real suspicion only; a record that is merely a question for the owner of its
+      // register (e.g. Maren updating the stock) gets its own tab, so it never looks suspicious.
+      const records = all.filter((row) => !row.askOnly);
+      const askRecords = all.filter((row) => row.askOnly);
       ledgerModel.setProperty("/records", records);
-      ledgerModel.setProperty("/dossier", records.filter((row) => row.untrusted));
+      ledgerModel.setProperty("/askRecords", askRecords);
+      ledgerModel.setProperty("/dossier", all.filter((row) => row.untrusted));
       ledgerModel.setProperty(
         "/moments",
         events.map((context) => {
@@ -298,9 +304,9 @@ export default class Main extends Controller {
         }),
       );
       ledgerModel.setProperty("/summary", {
-        suspect: t(bundle, "summarySuspect", [records.filter((row) => !row.askOnly).length]),
-        ask: t(bundle, "summaryAsk", [records.filter((row) => row.askOnly).length]),
-        marked: t(bundle, "summaryMarked", [records.filter((row) => row.untrusted).length]),
+        suspect: t(bundle, "summarySuspect", [records.length]),
+        ask: t(bundle, "summaryAsk", [askRecords.length]),
+        marked: t(bundle, "summaryMarked", [all.filter((row) => row.untrusted).length]),
       });
       ledgerModel.setProperty("/seal", {
         title: t(bundle, check.intact ? "sealIntact" : "sealBroken"),

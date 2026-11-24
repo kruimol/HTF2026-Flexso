@@ -64,7 +64,7 @@
                                 <Column id="colTrust" width="16rem" minScreenWidth="Tablet" demandPopin="true"><Text id="colTrustHdr" text="{i18n>colTrust}" /></Column>
                             </columns>
                             <items>
-                                <ColumnListItem id="findingItem" vAlign="Top" highlight="{= ${ledger>untrusted} ? 'Error' : (${ledger>askOnly} ? 'Information' : 'Warning') }">
+                                <ColumnListItem id="findingItem" vAlign="Top" highlight="{= ${ledger>untrusted} ? 'Error' : 'Warning' }">
                                     <cells>
                                         <ObjectIdentifier id="findingRecord" title="{ledger>recordLabel}" text="{ledger>register}" />
                                         <VBox id="findingReasons" items="{ path: 'ledger>reasons', templateShareable: false }">
@@ -84,6 +84,27 @@
                                                 visible="{= !${ledger>untrusted} }" press=".onMark" class="sapUiTinyMarginTop" />
                                             <Button id="clearButton" text="{i18n>clearButton}" icon="sap-icon://ti/flag-off" type="Transparent"
                                                 visible="{ledger>untrusted}" press=".onClearMark" class="sapUiTinyMarginTop" />
+                                        </VBox>
+                                    </cells>
+                                </ColumnListItem>
+                            </items>
+                        </Table>
+                    </IconTabFilter>
+
+                    <!-- ====================== Questions for the owner of a register ====================== -->
+                    <IconTabFilter id="tabAsk" icon="sap-icon://ti/arrows-exchange" text="{i18n>tabAsk}" count="{= ${ledger>/askRecords}.length }" key="ask">
+                        <Text id="askIntro" text="{i18n>askIntro}" class="ilseIntro sapUiSmallMarginBottom" />
+                        <Table id="askTable" items="{ path: 'ledger>/askRecords', templateShareable: false }" noDataText="{i18n>noAsk}" popinLayout="GridSmall">
+                            <columns>
+                                <Column id="askColRecord" width="14rem"><Text id="askColRecordHdr" text="{i18n>colRecord}" /></Column>
+                                <Column id="askColWhat"><Text id="askColWhatHdr" text="{i18n>colAsk}" /></Column>
+                            </columns>
+                            <items>
+                                <ColumnListItem id="askItem" vAlign="Top" highlight="Information">
+                                    <cells>
+                                        <ObjectIdentifier id="askRecord" title="{ledger>recordLabel}" text="{ledger>register}" />
+                                        <VBox id="askReasons" items="{ path: 'ledger>reasons', templateShareable: false }">
+                                            <Text id="askExplanation" text="{ledger>explanation}" class="ilseReason sapUiTinyMarginBottom" />
                                         </VBox>
                                     </cells>
                                 </ColumnListItem>
