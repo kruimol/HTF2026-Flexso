@@ -10,6 +10,7 @@ import { buildHuntMap, buildPlaceArt, DRAWINGS, type HuntPipe, type HuntPlace } 
 import { buildBoardSvg, isSolved, newPuzzle, turnCell, type PipeBoard } from "../model/pipePuzzle";
 import { buildWordGridSvg, newWordGrid, wordAt, type WordGrid } from "../model/wordSearch";
 import { answerOptions, buildMeadowSvg, newWave, type Wave } from "../model/sheepCount";
+import { buildMarketSvg, newMarket, productOf, stallOf, type MarketGame, type StallId } from "../model/marketConnect";
 import type { Button$PressEvent } from "sap/m/Button";
 import type Button from "sap/m/Button";
 import { PLACE_STORIES, type PlaceStory } from "../model/places";
@@ -99,6 +100,10 @@ export default class Main extends Controller {
   private sheepDialog?: Dialog;
   private wave?: Wave;
   private sheepTimer?: ReturnType<typeof setTimeout>;
+  private marketDialog?: Dialog;
+  private market?: MarketGame;
+  private matched: Record<string, StallId> = {};
+  private picked: string | null = null;
   private cells = new Map<string, string[]>();
   private pipes: HuntPipe[] = [];
   private listening = false;
@@ -114,6 +119,7 @@ export default class Main extends Controller {
         game: { svg: "", moves: 0, solved: false },
         words: { svg: "", list: [], found: 0, total: 0, solved: false },
         sheep: { svg: "", phase: "ready", options: [], message: "" },
+        market: { svg: "", done: 0, total: 0, solved: false, message: "", wrong: false },
       }),
       "hunt",
     );
@@ -125,6 +131,7 @@ export default class Main extends Controller {
     this.gameDialog?.destroy();
     this.wordDialog?.destroy();
     this.sheepDialog?.destroy();
+    this.marketDialog?.destroy();
     if (this.sheepTimer) clearTimeout(this.sheepTimer);
   }
 
@@ -134,6 +141,11 @@ export default class Main extends Controller {
   public async onPlay(): Promise<void> {
     this.placeDialog?.close();
     const game = this.getHuntModel().getProperty("/place/game") as string;
+    if (game === "market") {
+      await this.newMarketGame();
+      (await this.getMarketDialog()).open();
+      return;
+    }
     if (game === "sheep") {
       await this.readySheep();
       (await this.getSheepDialog()).open();
@@ -146,6 +158,97 @@ export default class Main extends Controller {
     }
     this.newBoard();
     (await this.getGameDialog()).open();
+  }
+
+  /* ------------------------------ Products to stalls (Central Market Square) ------------------------------ */
+
+  public async onNewMarket(): Promise<void> {
+    await this.newMarketGame();
+  }
+
+  public onCloseMarket(): void {
+    this.marketDialog?.close();
+  }
+
+  private async newMarketGame(): Promise<void> {
+    this.market = newMarket(Math.floor(Math.random() * 1_000_000) + 1);
+    this.matched = {};
+    this.picked = null;
+    const model = this.getHuntModel();
+    model.setProperty("/market/done", 0);
+    model.setProperty("/market/total", this.market.products.length);
+    model.setProperty("/market/solved", false);
+    model.setProperty("/market/message", "");
+    await this.drawMarket();
+  }
+
+  /** A product was clicked: pick it up (click again to put it down). */
+  private async pickProduct(id: string): Promise<void> {
+    if (!this.market || this.matched[id] || this.getHuntModel().getProperty("/market/solved")) return;
+    this.picked = this.picked === id ? null : id;
+    this.getHuntModel().setProperty("/market/message", "");
+    await this.drawMarket();
+  }
+
+  /** A stall was clicked: does the picked product belong here? */
+  private async bringToStall(id: string): Promise<void> {
+    const model = this.getHuntModel();
+    if (!this.market || model.getProperty("/market/solved")) return;
+    const bundle = await this.getBundle();
+    const stall = stallOf(id);
+    const product = this.picked ? productOf(this.picked) : undefined;
+    if (!stall) return;
+    if (!product) {
+      model.setProperty("/market/wrong", false);
+      model.setProperty("/market/message", this.text(bundle, "marketPickFirst"));
+      return;
+    }
+    if (product.stall === stall.id) {
+      this.matched = { ...this.matched, [product.id]: stall.id };
+      this.picked = null;
+      const done = Object.keys(this.matched).length;
+      model.setProperty("/market/done", done);
+      model.setProperty("/market/wrong", false);
+      model.setProperty("/market/message", this.text(bundle, "marketRight", [product.name, stall.name]));
+      if (done === this.market.products.length) {
+        model.setProperty("/market/solved", true);
+        model.setProperty("/market/message", "");
+        await this.earnStamp(); // every product at its stall: the stamp of the square
+      }
+    } else {
+      model.setProperty("/market/wrong", true);
+      model.setProperty("/market/message", this.text(bundle, "marketWrong", [stall.name, product.name.toLowerCase()]));
+    }
+    await this.drawMarket();
+  }
+
+  private async drawMarket(): Promise<void> {
+    if (!this.market) return;
+    const bundle = await this.getBundle();
+    this.getHuntModel().setProperty("/market/svg", `<div class="mkWrap">${buildMarketSvg(this.market, this.matched, this.picked, {
+      title: this.text(bundle, "marketTitle"),
+      pick: this.text(bundle, "marketPick"),
+      bring: this.text(bundle, "marketBring"),
+    })}</div>`);
+    const html = this.byId("marketBoard") as HTML | undefined;
+    if (html) setTimeout(() => this.listenMarket(html), 0);
+  }
+
+  private listenMarket(html: HTML): void {
+    this.listenFor(html, "data-product", (value) => void this.pickProduct(value));
+    this.listenFor(html, "data-stall", (value) => void this.bringToStall(value));
+  }
+
+  private async getMarketDialog(): Promise<Dialog> {
+    if (!this.marketDialog) {
+      const view = this.getView();
+      if (!view) throw new Error("view not ready");
+      this.marketDialog = (await Fragment.load({ id: view.getId(), name: "oakhaven.hunt.view.MarketGame", controller: this })) as Dialog;
+      view.addDependent(this.marketDialog);
+      const html = this.byId("marketBoard") as HTML | undefined;
+      html?.attachAfterRendering(() => this.listenMarket(html));
+    }
+    return this.marketDialog;
   }
 
   /* ------------------------------ Count the sheep (South Meadow Farms) ------------------------------ */

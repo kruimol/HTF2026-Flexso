@@ -26,7 +26,7 @@ export interface PlaceStory {
   /** The mystery that will become this place's puzzle. */
   readonly mystery: string;
   /** The game of this place: solve it to earn the stamp. No game yet: the stamp is free. */
-  readonly game?: "pipes" | "words" | "sheep";
+  readonly game?: "pipes" | "words" | "sheep" | "market";
 }
 
 const MAREN: Villager = {
@@ -93,7 +93,8 @@ export const PLACE_STORIES: readonly PlaceStory[] = [
     kind: "market",
     about: "The heart of the village: stalls, a well, and tonight the fair.",
     villagers: [ROWAN, ILSE],
-    mystery: "Three stalls, three coloured awnings. Which stall would you open at the fair?",
+    mystery: "The fair is tonight, but the market wagon tipped over and everything is mixed up! Help Rowan bring every product to the right stall.",
+    game: "market",
   },
   {
     name: "The Bakery",

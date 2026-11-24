@@ -280,3 +280,23 @@ body {
 @keyframes scHop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
 @keyframes scTrot { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 .scOption { min-width: 4rem; font-size: 1.25rem; }
+
+/* ---------- Products to stalls (Central Market Square) ---------- */
+.mkWrap svg { display: block; width: 100%; height: auto; }
+.mkSquare { fill: #22170e; stroke: var(--mrCopperLine); stroke-width: 3; }
+.mkProduct, .mkStall { cursor: pointer; outline: none; }
+.mkCard { fill: rgba(243, 230, 200, 0.08); stroke: rgba(192, 112, 63, 0.4); stroke-width: 2; }
+.mkProduct:hover .mkCard, .mkProduct:focus-visible .mkCard { stroke: #d4a24c; stroke-width: 3; }
+.mkSelected .mkCard { stroke: #c0703f; stroke-width: 5; fill: rgba(192, 112, 63, 0.22); }
+.mkDone { opacity: 0.5; cursor: default; }
+.mkEmoji { font-size: 34px; dominant-baseline: central; text-anchor: middle; }
+.mkName { fill: #f3e6c8; font-family: Cinzel, Georgia, serif; font-size: 26px; font-weight: bold; dominant-baseline: central; }
+.mkStallHit { fill: transparent; stroke: transparent; stroke-width: 3; }
+.mkStall:hover .mkStallHit, .mkStall:focus-visible .mkStallHit { fill: rgba(212, 162, 76, 0.12); stroke: #d4a24c; stroke-dasharray: 10 8; }
+.mkPost { fill: #4a3a28; }
+.mkCounter { fill: #6b4a2b; stroke: #3a2614; stroke-width: 3; }
+.mkSign { fill: #f3e6c8; font-family: Cinzel, Georgia, serif; font-size: 22px; font-weight: bold; text-anchor: middle; }
+.mkLine { fill: none; stroke-width: 7; stroke-linecap: round; }
+.mrAwning0Line { stroke: #e98c8c; }
+.mrAwning1Line { stroke: #7fb2e5; }
+.mrAwning2Line { stroke: #d4a24c; }
