@@ -1,0 +1,169 @@
+<mvc:View
+    controllerName="tobin.weekahead.controller.Main"
+    class="mrTheme"
+    xmlns="sap.m"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns:f="sap.f"
+    xmlns:core="sap.ui.core"
+    xmlns:l="sap.ui.layout"
+    core:require="{ DateTimeOffset: 'sap/ui/model/odata/type/DateTimeOffset' }"
+    displayBlock="true"
+    height="100%">
+    <f:DynamicPage id="page" toggleHeaderOnTitleClick="false">
+        <f:title>
+            <f:DynamicPageTitle id="pageTitle">
+                <f:heading>
+                    <HBox id="pageHeading" alignItems="Center">
+                        <core:Icon id="pageLogo" src="sap-icon://ti/baguette" size="1.75rem" class="tobinLogo sapUiSmallMarginEnd" />
+                        <Title id="pageTitleText" text="{i18n>appTitle}" level="H1" wrapping="false" class="mrPageTitle" />
+                    </HBox>
+                </f:heading>
+                <f:expandedContent>
+                    <Label id="pageSubtitle" text="{i18n>pageSubtitle}" />
+                </f:expandedContent>
+                <f:snappedContent>
+                    <Label id="pageSubtitleSnapped" text="{i18n>pageSubtitle}" />
+                </f:snappedContent>
+                <f:actions>
+                    <Text id="generatedAt" text="{week>/generatedAt}" class="tobinHint" />
+                    <Button id="refreshButton" icon="sap-icon://refresh" tooltip="{i18n>refresh}" press=".onRefresh" />
+                    <Button id="followButton" icon="sap-icon://add" text="{i18n>followIngredient}" press=".onFollow" />
+                </f:actions>
+            </f:DynamicPageTitle>
+        </f:title>
+
+        <f:content>
+            <VBox id="content" busy="{week>/busy}" class="sapUiResponsiveContentPadding">
+
+                <!-- ====================== Morning brief ====================== -->
+                <Panel id="briefPanel" class="tobinBrief sapUiSmallMarginBottom">
+                    <headerToolbar>
+                        <Toolbar id="briefToolbar" design="Transparent">
+                            <Title id="briefTitle" text="{i18n>briefTitle}" level="H2" class="mrHeading" />
+                        </Toolbar>
+                    </headerToolbar>
+                    <List id="briefList" items="{ path: 'week>/brief', templateShareable: false }" showSeparators="None">
+                        <CustomListItem id="briefItem">
+                            <HBox id="briefLine" alignItems="Center" class="sapUiTinyMargin">
+                                <ObjectStatus id="briefStatus" icon="{week>icon}" state="{week>state}" class="sapUiSmallMarginEnd" />
+                                <Text id="briefText" text="{week>text}" class="tobinBriefLine" />
+                            </HBox>
+                        </CustomListItem>
+                    </List>
+                </Panel>
+
+                <!-- ====================== Forecast per ingredient ====================== -->
+                <Toolbar id="forecastToolbar" class="sapUiSmallMarginTop" design="Transparent">
+                    <Title id="forecastTitle" text="{i18n>forecastTitle}" level="H2" class="mrHeading" />
+                    <ToolbarSpacer id="forecastSpacer" />
+                    <Button id="countStockButton" icon="sap-icon://inventory" text="{i18n>countStock}" press=".onCountStock" />
+                    <Button id="receiveDeliveryButton" icon="sap-icon://ti/truck-delivery" text="{i18n>receiveDelivery}" press=".onReceiveDelivery" />
+                    <Button id="placeOrderButton" icon="sap-icon://cart" text="{i18n>placeOrder}" type="Emphasized" press=".onPlaceOrder" />
+                </Toolbar>
+                <Table id="forecastTable" items="{ path: 'week>/items', templateShareable: false }" noDataText="{i18n>noItems}">
+                    <columns>
+                        <Column id="colIngredient"><Text id="colIngredientHdr" text="{i18n>colIngredient}" /></Column>
+                        <Column id="colStatus"><Text id="colStatusHdr" text="{i18n>colStatus}" /></Column>
+                        <Column id="colStock" hAlign="End"><Text id="colStockHdr" text="{i18n>colStock}" /></Column>
+                        <Column id="colRunsOut" minScreenWidth="Tablet" demandPopin="true"><Text id="colRunsOutHdr" text="{i18n>colRunsOut}" /></Column>
+                        <Column id="colOrderBy"><Text id="colOrderByHdr" text="{i18n>colOrderBy}" /></Column>
+                        <Column id="colAdvice" hAlign="End" minScreenWidth="Tablet" demandPopin="true"><Text id="colAdviceHdr" text="{i18n>colAdvice}" tooltip="{i18n>adviceTooltip}" /></Column>
+                        <Column id="colIncoming" minScreenWidth="Tablet" demandPopin="true"><Text id="colIncomingHdr" text="{i18n>colIncoming}" /></Column>
+                        <Column id="colRate" minScreenWidth="Desktop" demandPopin="true"><Text id="colRateHdr" text="{i18n>colRate}" /></Column>
+                        <Column id="colSupplier" minScreenWidth="Desktop" demandPopin="true"><Text id="colSupplierHdr" text="{i18n>colSupplier}" /></Column>
+                        <Column id="colActions" hAlign="End" width="6rem"><Text id="colActionsHdr" text="{i18n>colActions}" /></Column>
+                    </columns>
+                    <items>
+                        <ColumnListItem id="forecastRow">
+                            <cells>
+                                <HBox id="ingredientCell" alignItems="Center">
+                                    <core:Icon id="ingredientIcon" src="{week>icon}" class="sapUiSmallMarginEnd" />
+                                    <ObjectIdentifier id="ingredientName" title="{week>name}" />
+                                </HBox>
+                                <ObjectStatus id="statusCell" text="{week>statusText}" icon="{week>statusIcon}" state="{week>state}" />
+                                <ObjectNumber id="stockCell" number="{week>currentQuantity}" unit="{week>unit}" state="{week>state}" tooltip="{= ${week>dataSuspect} ? ${i18n>suspectTooltip} : '' }" />
+                                <Text id="runsOutCell" text="{week>runsOutText}" />
+                                <ObjectStatus id="orderByCell" text="{week>orderByText}" state="{week>state}" />
+                                <ObjectNumber id="adviceCell" number="{week>adviceQuantity}" unit="{week>unit}" emphasized="true" />
+                                <ObjectStatus id="incomingCell" text="{week>incomingText}" icon="{= ${week>incomingQuantity} > 0 ? 'sap-icon://ti/truck-delivery' : '' }" state="{= ${week>incomingQuantity} > 0 ? 'Information' : 'None' }" />
+                                <ObjectIdentifier id="rateCell" title="{week>rateText}" text="{week>countedText}" />
+                                <ObjectIdentifier id="supplierCell" title="{week>supplier}" text="{week>leadTimeText}" />
+                                <HBox id="rowActions" justifyContent="End">
+                                    <Button id="orderThisButton" icon="sap-icon://cart" type="Transparent" tooltip="{i18n>orderThis}" press=".onOrderThis" />
+                                    <Button id="unfollowButton" icon="sap-icon://delete" type="Transparent" tooltip="{i18n>unfollow}" press=".onUnfollow" />
+                                </HBox>
+                            </cells>
+                        </ColumnListItem>
+                    </items>
+                </Table>
+
+                <!-- ====================== Open orders ====================== -->
+                <Title id="ordersTitle" text="{i18n>ordersTitle}" level="H2" class="mrHeading sapUiMediumMarginTop sapUiTinyMarginBottom" />
+                <Table id="ordersTable" items="{ path: 'week>/orders', templateShareable: false }" noDataText="{i18n>ordersNone}">
+                    <columns>
+                        <Column id="ordIngredientCol"><Text id="ordIngredientHdr" text="{i18n>colIngredient}" /></Column>
+                        <Column id="ordQuantityCol" hAlign="End"><Text id="ordQuantityHdr" text="{i18n>colOrderQuantity}" /></Column>
+                        <Column id="ordExpectedCol"><Text id="ordExpectedHdr" text="{i18n>colExpected}" /></Column>
+                        <Column id="ordActionsCol" hAlign="End" width="14rem"><Text id="ordActionsHdr" text="{i18n>colActions}" /></Column>
+                    </columns>
+                    <items>
+                        <ColumnListItem id="ordersRow">
+                            <cells>
+                                <ObjectIdentifier id="ordName" title="{week>name}" />
+                                <ObjectNumber id="ordQuantity" number="{week>quantity}" unit="{week>unit}" />
+                                <ObjectStatus id="ordExpected" text="{week>expectedText}" icon="{= ${week>late} ? 'sap-icon://ti/clock-exclamation' : 'sap-icon://ti/truck-delivery' }" state="{= ${week>late} ? 'Warning' : 'Information' }" />
+                                <HBox id="ordActions" justifyContent="End">
+                                    <Button id="ordReceive" text="{i18n>receive}" type="Emphasized" press=".onReceiveOrder" class="sapUiTinyMarginEnd" />
+                                    <Button id="ordCancel" text="{i18n>cancelOrder}" press=".onCancelOrder" />
+                                </HBox>
+                            </cells>
+                        </ColumnListItem>
+                    </items>
+                </Table>
+
+                <!-- ====================== Day by day ====================== -->
+                <Title id="daysTitle" text="{i18n>daysTitle}" level="H2" class="mrHeading sapUiMediumMarginTop sapUiTinyMarginBottom" />
+                <Text id="saturdayHint" text="{i18n>saturdayHint}" class="tobinHint sapUiTinyMarginBottom" />
+                <Table id="daysTable" items="{ path: 'week>/items', templateShareable: false }" noDataText="{i18n>noItems}">
+                    <columns>
+                        <Column id="dayColName"><Text id="dayColNameHdr" text="{i18n>colIngredient}" /></Column>
+                        <Column id="dayCol0" hAlign="End"><Text id="dayCol0Hdr" text="{week>/dayHeaders/0/label}" /></Column>
+                        <Column id="dayCol1" hAlign="End"><Text id="dayCol1Hdr" text="{week>/dayHeaders/1/label}" /></Column>
+                        <Column id="dayCol2" hAlign="End"><Text id="dayCol2Hdr" text="{week>/dayHeaders/2/label}" /></Column>
+                        <Column id="dayCol3" hAlign="End"><Text id="dayCol3Hdr" text="{week>/dayHeaders/3/label}" /></Column>
+                        <Column id="dayCol4" hAlign="End"><Text id="dayCol4Hdr" text="{week>/dayHeaders/4/label}" /></Column>
+                        <Column id="dayCol5" hAlign="End"><Text id="dayCol5Hdr" text="{week>/dayHeaders/5/label}" /></Column>
+                        <Column id="dayCol6" hAlign="End"><Text id="dayCol6Hdr" text="{week>/dayHeaders/6/label}" /></Column>
+                    </columns>
+                    <items>
+                        <ColumnListItem id="daysRow">
+                            <cells>
+                                <ObjectIdentifier id="dayName" title="{week>name}" text="{week>unit}" />
+                                <ObjectNumber id="dayCell0" number="{week>days/0/startQuantity}" state="{week>days/0/state}" />
+                                <ObjectNumber id="dayCell1" number="{week>days/1/startQuantity}" state="{week>days/1/state}" />
+                                <ObjectNumber id="dayCell2" number="{week>days/2/startQuantity}" state="{week>days/2/state}" />
+                                <ObjectNumber id="dayCell3" number="{week>days/3/startQuantity}" state="{week>days/3/state}" />
+                                <ObjectNumber id="dayCell4" number="{week>days/4/startQuantity}" state="{week>days/4/state}" />
+                                <ObjectNumber id="dayCell5" number="{week>days/5/startQuantity}" state="{week>days/5/state}" />
+                                <ObjectNumber id="dayCell6" number="{week>days/6/startQuantity}" state="{week>days/6/state}" />
+                            </cells>
+                        </ColumnListItem>
+                    </items>
+                </Table>
+
+                <!-- ====================== Notifications ====================== -->
+                <Title id="notificationsTitle" text="{i18n>notificationsTitle}" level="H2" class="mrHeading sapUiMediumMarginTop sapUiTinyMarginBottom" />
+                <List
+                    id="notificationsList"
+                    noDataText="{i18n>notificationsNone}"
+                    items="{ path: '/Notifications', filters: [{ path: 'acknowledged', operator: 'EQ', value1: false }], sorter: { path: 'createdAt', descending: true }, length: 10, templateShareable: false }">
+                    <ObjectListItem id="notificationItem" title="{message}">
+                        <attributes>
+                            <ObjectAttribute id="notificationDate" text="{ path: 'createdAt', type: 'DateTimeOffset', constraints: { precision: 3 }, formatOptions: { style: 'medium' } }" />
+                        </attributes>
+                    </ObjectListItem>
+                </List>
+            </VBox>
+        </f:content>
+    </f:DynamicPage>
+</mvc:View>

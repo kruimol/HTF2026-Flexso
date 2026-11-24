@@ -1,0 +1,9 @@
+{
+  "name": "tobin.weekahead",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tobin's Week Ahead — will there be enough to bake next week?",
+  "devDependencies": {
+    "ui5-tooling-transpile": "^3.13.1"
+  }
+}

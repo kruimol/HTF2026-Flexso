@@ -1,0 +1,111 @@
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Special+Elite&family=Courier+Prime&display=swap");
+
+/* Tobin's Week Ahead — "Crisis in Oakhaven" house style (see Morning_Round__styling_handoff.md):
+   dark ink, copper and gold, Cinzel headings and a typewriter title. The theme is one class,
+   `mrTheme`, on the view and on every dialog: it overrides the UI5 theme parameters, so all
+   controls follow. The semantic status colours (--sapNegativeColor, --sapCriticalColor,
+   --sapPositiveColor, --sapInformativeColor) are left untouched: red always means alarm. */
+
+.mrTheme {
+    --mrInk: #1a120b;
+    --mrInkRaised: #22170e;
+    --mrCopper: #c0703f;
+    --mrGold: #d4a24c;
+    --mrCream: rgba(243, 230, 200, 0.85);
+    --mrCopperLine: rgba(192, 112, 63, 0.25);
+
+    --sapBackgroundColor: var(--mrInk);
+    --sapShellColor: var(--mrInk);
+    --sapGroup_ContentBackground: var(--mrInkRaised);
+    --sapGroup_TitleBackground: var(--mrInkRaised);
+    --sapGroup_ContentBorderColor: var(--mrCopperLine);
+    --sapObjectHeader_Background: var(--mrInk);
+    --sapPageHeader_Background: var(--mrInk);
+    --sapPageHeader_BorderColor: var(--mrCopperLine);
+    --sapToolbar_Background: transparent;
+    --sapList_Background: var(--mrInkRaised);
+    --sapList_BorderColor: var(--mrCopperLine);
+    --sapList_HeaderBackground: var(--mrInkRaised);
+    --sapList_HeaderBorderColor: var(--mrCopperLine);
+    --sapList_HeaderTextColor: var(--mrGold);
+    --sapList_TableHeaderBorderColor: var(--mrCopperLine);
+    --sapList_Hover_Background: rgba(192, 112, 63, 0.1);
+    --sapList_SelectionBackgroundColor: rgba(192, 112, 63, 0.2);
+    --sapList_Active_Background: rgba(192, 112, 63, 0.3);
+    --sapTextColor: var(--mrCream);
+    --sapTitleColor: var(--mrGold);
+    --sapContent_LabelColor: rgba(243, 230, 200, 0.6);
+    --sapContent_IconColor: var(--mrGold);
+    --sapContent_ContrastIconColor: var(--mrInk);
+    --sapContent_ForegroundBorderColor: var(--mrCopperLine);
+    --sapContent_Selected_Background: rgba(192, 112, 63, 0.25);
+    --sapBrandColor: var(--mrCopper);
+    --sapHighlightColor: var(--mrCopper);
+    --sapLinkColor: var(--mrGold);
+    --sapLink_Hover_Color: var(--mrCopper);
+    --sapField_Background: var(--mrInk);
+    --sapField_BorderColor: var(--mrCopperLine);
+    --sapField_TextColor: var(--mrCream);
+    --sapField_Hover_Background: var(--mrInkRaised);
+    --sapButton_Background: var(--mrInkRaised);
+    --sapButton_BorderColor: var(--mrCopperLine);
+    --sapButton_TextColor: var(--mrGold);
+    --sapButton_Hover_Background: rgba(192, 112, 63, 0.2);
+    --sapButton_Emphasized_Background: var(--mrCopper);
+    --sapButton_Emphasized_BorderColor: var(--mrCopper);
+    --sapButton_Emphasized_TextColor: var(--mrInk);
+    --sapButton_Emphasized_Hover_Background: var(--mrGold);
+    --sapButton_Emphasized_Hover_BorderColor: var(--mrGold);
+    --sapButton_Selected_Background: rgba(192, 112, 63, 0.25);
+    --sapButton_Lite_TextColor: var(--mrGold);
+    --sapShell_Background: var(--mrInk);
+
+    background: var(--mrInk);
+}
+
+/* Page title: typewriter, copper, with a glow. */
+.mrPageTitle {
+    font-family: "Special Elite", "Courier New", Courier, monospace;
+    color: var(--mrCopper);
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    text-shadow: 0 0 12px rgba(192, 112, 63, 0.5);
+}
+
+/* Section heading: Cinzel, gold, capitals. */
+.mrHeading {
+    font-family: "Cinzel", Georgia, serif;
+    font-weight: 700;
+    color: var(--mrGold);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.tobinLogo {
+    color: var(--mrCopper);
+}
+
+.tobinBrief {
+    max-width: 60rem;
+    border: 1px solid var(--mrCopperLine);
+    border-left: 0.5rem solid var(--mrCopper);
+    border-radius: 0.75rem;
+}
+
+.tobinBriefLine {
+    font-size: var(--sapFontLargeSize);
+}
+
+.tobinSaturday {
+    color: var(--sapInformativeTextColor);
+}
+
+.tobinHint {
+    color: var(--sapContent_LabelColor);
+}
+
+/* Standalone (outside the launchpad) the page needs the full window height. */
+html,
+body {
+    height: 100%;
+}

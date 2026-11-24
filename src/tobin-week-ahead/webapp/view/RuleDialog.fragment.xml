@@ -1,0 +1,32 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:l="sap.ui.layout.form">
+    <Dialog id="ruleDialog" title="{i18n>dialogTitle}" contentWidth="28rem" draggable="true" class="mrTheme">
+        <content>
+            <l:SimpleForm id="ruleForm" editable="true" layout="ResponsiveGridLayout">
+                <Label id="ruleItemLabel" text="{i18n>dialogIngredient}" labelFor="ruleItem" required="true" />
+                <Select
+                    id="ruleItem"
+                    forceSelection="false"
+                    selectedKey="{week>/form/itemUUID}"
+                    items="{ path: '/StockItems', sorter: { path: 'name' }, templateShareable: false }">
+                    <core:Item id="ruleItemEntry" key="{ID}" text="{name}" />
+                </Select>
+                <Label id="ruleSupplierLabel" text="{i18n>dialogSupplier}" labelFor="ruleSupplier" />
+                <Input id="ruleSupplier" value="{week>/form/supplier}" />
+                <Label id="ruleLeadTimeLabel" text="{i18n>dialogLeadTime}" labelFor="ruleLeadTime" />
+                <StepInput id="ruleLeadTime" value="{week>/form/leadTimeDays}" min="0" max="30" step="1" />
+                <Label id="ruleSaturdayLabel" text="{i18n>dialogSaturday}" labelFor="ruleSaturday" />
+                <StepInput id="ruleSaturday" value="{week>/form/saturdayFactor}" min="0.5" max="5" step="0.5" displayValuePrecision="1" />
+                <Text id="ruleHint" text="{i18n>dialogHint}" class="tobinHint" />
+            </l:SimpleForm>
+        </content>
+        <beginButton>
+            <Button id="ruleSave" text="{i18n>dialogSave}" type="Emphasized" enabled="{= !!${week>/form/itemUUID} }" press=".onSaveRule" />
+        </beginButton>
+        <endButton>
+            <Button id="ruleCancel" text="{i18n>dialogCancel}" press=".onCancelDialog" />
+        </endButton>
+    </Dialog>
+</core:FragmentDefinition>

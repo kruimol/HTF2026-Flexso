@@ -1,0 +1,36 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:l="sap.ui.layout.form">
+    <Dialog id="orderDialog" title="{i18n>orderDialogTitle}" contentWidth="28rem" draggable="true" class="mrTheme">
+        <content>
+            <l:SimpleForm id="orderForm" editable="true" layout="ResponsiveGridLayout">
+                <Label id="orderItemLabel" text="{i18n>dialogIngredient}" labelFor="orderItem" required="true" />
+                <Select
+                    id="orderItem"
+                    forceSelection="false"
+                    selectedKey="{week>/order/itemUUID}"
+                    change=".onOrderItemChange"
+                    items="{ path: 'week>/items', templateShareable: false }">
+                    <core:Item id="orderItemEntry" key="{week>itemUUID}" text="{week>name}" />
+                </Select>
+                <Label id="orderQuantityLabel" text="{i18n>orderQuantity}" labelFor="orderQuantity" required="true" />
+                <Input id="orderQuantity" type="Number" value="{week>/order/quantity}" description="{week>/order/unit}" />
+                <Label id="orderExpectedLabel" text="{i18n>orderExpected}" labelFor="orderExpected" required="true" />
+                <DatePicker id="orderExpected" value="{week>/order/expectedAt}" valueFormat="yyyy-MM-dd" displayFormat="long" />
+                <Text id="orderHint" text="{i18n>orderHint}" class="tobinHint" />
+            </l:SimpleForm>
+        </content>
+        <beginButton>
+            <Button
+                id="orderSave"
+                text="{i18n>orderSave}"
+                type="Emphasized"
+                enabled="{= !!${week>/order/itemUUID} &amp;&amp; Number(${week>/order/quantity}) > 0 &amp;&amp; !!${week>/order/expectedAt} }"
+                press=".onSaveOrder" />
+        </beginButton>
+        <endButton>
+            <Button id="orderCancel" text="{i18n>dialogCancel}" press=".onCancelDialog" />
+        </endButton>
+    </Dialog>
+</core:FragmentDefinition>

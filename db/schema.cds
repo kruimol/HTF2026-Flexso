@@ -110,3 +110,37 @@ entity Notifications : cuid, managed {
   message      : String;
   acknowledged : Boolean default false;
 }
+
+/**
+ * Supply rule: tells Tobin's Week Ahead which stock items to follow and how they are delivered.
+ * One row per followed item — add a row (or use the app dialog) to follow a new ingredient.
+ */
+entity SupplyRules : cuid, managed {
+  item           : Association to StockItems;
+  supplier       : String;
+  leadTimeDays   : Integer;           // days between ordering and delivery
+  saturdayFactor : Decimal(4, 2) default 1; // consumption on Saturday (market day) = rate × factor
+  lastStatus     : String;            // last status a notification was sent for (green|orange|red)
+  // Learned from the stock counts (see srv/lib/stock-learning.ts); empty until the first interval is counted.
+  learnedRate           : Decimal(9, 3);  // `unit` per normal day
+  learnedSaturdayFactor : Decimal(4, 2);  // consumption on Saturday = learnedRate × factor
+  samples               : Integer default 0; // number of count intervals learned from
+}
+
+/** An order Tobin placed with a supplier: on its way until it is received or cancelled. */
+entity StockOrders : cuid, managed {
+  item             : Association to StockItems;
+  quantity         : Decimal(9, 2);          // ordered, in the item's `unit`
+  expectedAt       : Date;                   // the day the delivery should arrive
+  status           : String default 'open';  // open | received | cancelled
+  receivedQuantity : Decimal(9, 2);          // what actually arrived (set on receive)
+}
+
+/** A stock count: what Tobin really found on the shelf. The forecast learns from the differences. */
+entity StockCounts : cuid, managed {
+  item        : Association to StockItems;
+  quantity    : Decimal(9, 2);   // counted, in the item's `unit`
+  countedOn   : Date;            // the day it was counted (counts are start-of-day: counted in the morning)
+  consumed    : Decimal(9, 2);   // used since the previous count (null for the first count)
+  days        : Integer;         // days between the previous count and this one
+}

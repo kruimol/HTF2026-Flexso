@@ -1,0 +1,38 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:l="sap.ui.layout.form">
+    <Dialog id="countDialog" title="{i18n>countDialogTitle}" contentWidth="36rem" draggable="true" class="mrTheme">
+        <content>
+            <VBox id="countBox" class="sapUiSmallMargin">
+                <l:SimpleForm id="countForm" editable="true" layout="ResponsiveGridLayout">
+                    <Label id="countDateLabel" text="{i18n>countDate}" labelFor="countDate" />
+                    <DatePicker id="countDate" value="{week>/count/date}" valueFormat="yyyy-MM-dd" displayFormat="long" maxDate="{week>/count/maxDate}" />
+                </l:SimpleForm>
+                <Table id="countTable" items="{ path: 'week>/count/lines', templateShareable: false }">
+                    <columns>
+                        <Column id="countColName"><Text id="countColNameHdr" text="{i18n>colIngredient}" /></Column>
+                        <Column id="countColExpected" hAlign="End"><Text id="countColExpectedHdr" text="{i18n>countColExpected}" /></Column>
+                        <Column id="countColCounted" width="10rem"><Text id="countColCountedHdr" text="{i18n>countColCounted}" /></Column>
+                    </columns>
+                    <items>
+                        <ColumnListItem id="countRow">
+                            <cells>
+                                <ObjectIdentifier id="countName" title="{week>name}" />
+                                <ObjectNumber id="countExpected" number="{week>current}" unit="{week>unit}" />
+                                <Input id="countInput" type="Number" value="{week>quantity}" description="{week>unit}" />
+                            </cells>
+                        </ColumnListItem>
+                    </items>
+                </Table>
+                <Text id="countHint" text="{i18n>countHint}" class="tobinHint sapUiSmallMarginTop" />
+            </VBox>
+        </content>
+        <beginButton>
+            <Button id="countSave" text="{i18n>countSave}" type="Emphasized" press=".onSaveCount" />
+        </beginButton>
+        <endButton>
+            <Button id="countCancel" text="{i18n>dialogCancel}" press=".onCancelDialog" />
+        </endButton>
+    </Dialog>
+</core:FragmentDefinition>

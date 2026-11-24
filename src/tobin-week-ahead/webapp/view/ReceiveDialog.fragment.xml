@@ -1,0 +1,35 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core"
+    xmlns:l="sap.ui.layout.form">
+    <Dialog id="receiveDialog" title="{i18n>receiveDialogTitle}" contentWidth="28rem" draggable="true" class="mrTheme">
+        <content>
+            <l:SimpleForm id="receiveForm" editable="true" layout="ResponsiveGridLayout">
+                <Label id="receiveItemLabel" text="{i18n>dialogIngredient}" labelFor="receiveItem" required="true" />
+                <Select
+                    id="receiveItem"
+                    forceSelection="false"
+                    enabled="{= !${week>/receive/orderID} }"
+                    selectedKey="{week>/receive/itemUUID}"
+                    change=".onReceiveItemChange"
+                    items="{ path: 'week>/items', templateShareable: false }">
+                    <core:Item id="receiveItemEntry" key="{week>itemUUID}" text="{week>name}" />
+                </Select>
+                <Label id="receiveQuantityLabel" text="{i18n>receiveQuantity}" labelFor="receiveQuantity" required="true" />
+                <Input id="receiveQuantity" type="Number" value="{week>/receive/quantity}" description="{week>/receive/unit}" />
+                <Text id="receiveHint" text="{i18n>receiveHint}" class="tobinHint" />
+            </l:SimpleForm>
+        </content>
+        <beginButton>
+            <Button
+                id="receiveSave"
+                text="{i18n>receiveSave}"
+                type="Emphasized"
+                enabled="{= !!${week>/receive/itemUUID} &amp;&amp; Number(${week>/receive/quantity}) > 0 }"
+                press=".onSaveReceive" />
+        </beginButton>
+        <endButton>
+            <Button id="receiveCancel" text="{i18n>dialogCancel}" press=".onCancelDialog" />
+        </endButton>
+    </Dialog>
+</core:FragmentDefinition>
