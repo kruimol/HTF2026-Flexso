@@ -1,4 +1,102 @@
-/* Ilse's Ledger: small touches on top of sap_horizon_dark. Theme parameters only. */
+/* Ilse's Ledger in the Morning Round theme (see "Morning Round — styling handoff"): dark ink,
+   copper and gold, Cinzel headings, a typewriter title. Copied from src/water-app/webapp/css/style.css
+   — keep the two in step. The theme overrides UI5 theme parameters on the view root (mrTheme);
+   status colours stay the semantic ones. */
+
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Special+Elite&family=Courier+Prime&display=swap");
+
+.mrTheme {
+    /* palette */
+    --mrInk: #1a120b;
+    --mrInkRaised: #22170e;
+    --mrCopper: #c0703f;
+    --mrGold: #d4a24c;
+    --mrCream: rgba(243, 230, 200, 0.85);
+    --mrCreamSolid: #f3e6c8;
+    --mrCopperLine: rgba(192, 112, 63, 0.25);
+    --mrHeadingFont: Cinzel, Georgia, serif;
+    --mrTypewriterFont: "Special Elite", "Courier Prime", "Courier New", monospace;
+
+    /* UI5 theme parameters → the platform look */
+    --sapBackgroundColor: var(--mrInk);
+    --sapShellColor: var(--mrInk);
+    --sapPageHeader_Background: var(--mrInk);
+    --sapObjectHeader_Background: var(--mrInk);
+    --sapObjectHeader_BorderColor: var(--mrCopperLine);
+    --sapGroup_ContentBackground: var(--mrInkRaised);
+    --sapGroup_TitleBackground: var(--mrInkRaised);
+    --sapGroup_TitleBorderColor: var(--mrCopperLine);
+    --sapGroup_TitleTextColor: var(--mrGold);
+    --sapGroup_ContentBorderColor: var(--mrCopperLine);
+    --sapList_Background: var(--mrInkRaised);
+    --sapList_HeaderBackground: var(--mrInkRaised);
+    --sapList_HeaderTextColor: var(--mrGold);
+    --sapList_HeaderBorderColor: var(--mrCopperLine);
+    --sapList_BorderColor: var(--mrCopperLine);
+    --sapList_TableGroupHeaderBackground: var(--mrInkRaised);
+    --sapList_Hover_Background: #2c1f13;
+    --sapList_TextColor: var(--mrCream);
+    --sapTile_Background: var(--mrInkRaised);
+    --sapTile_TitleTextColor: var(--mrCreamSolid);
+    --sapTextColor: var(--mrCream);
+    --sapTitleColor: var(--mrGold);
+    --sapContent_LabelColor: rgba(243, 230, 200, 0.6);
+    --sapContent_IconColor: var(--mrGold);
+    --sapContent_ForegroundBorderColor: var(--mrCopperLine);
+    --sapBrandColor: var(--mrCopper);
+    --sapHighlightColor: var(--mrCopper);
+    --sapSelectedColor: var(--mrCopper);
+    --sapLinkColor: var(--mrGold);
+    --sapButton_Background: rgba(243, 230, 200, 0.05);
+    --sapButton_BorderColor: rgba(243, 230, 200, 0.2);
+    --sapButton_TextColor: var(--mrCreamSolid);
+    --sapButton_IconColor: var(--mrGold);
+    --sapButton_Hover_Background: rgba(192, 112, 63, 0.15);
+    --sapButton_Lite_TextColor: var(--mrGold);
+    --sapButton_Lite_Background: transparent;
+    --sapButton_Selected_Background: rgba(192, 112, 63, 0.25);
+    --sapButton_Selected_BorderColor: var(--mrCopper);
+    --sapButton_Selected_TextColor: var(--mrCreamSolid);
+    --sapButton_Emphasized_Background: var(--mrCopper);
+    --sapButton_Emphasized_BorderColor: var(--mrCopper);
+    --sapFontHeaderFamily: var(--mrHeadingFont);
+    background: var(--mrInk);
+}
+
+/* The typewriter title with a copper glow, as on the platform */
+.mrPageTitle {
+    font-family: var(--mrTypewriterFont) !important;
+    color: var(--mrCopper) !important;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    text-shadow: 0 0 12px rgba(192, 112, 63, 0.5);
+}
+
+/* Phone: a tighter title, so it never runs under the mode switch */
+@media (max-width: 600px) {
+    .mrPageTitle {
+        letter-spacing: 2px;
+        font-size: 1.05rem !important;
+    }
+}
+
+/* Section headings: gold Cinzel capitals */
+.mrHeading {
+    font-family: var(--mrHeadingFont) !important;
+    color: var(--mrGold) !important;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+/* Standalone (index.html): give the page the full window height, so the DynamicPage scrolls
+   its content. Inside the launchpad the shell already does this. */
+html,
+body {
+    height: 100%;
+    background: #1a120b; /* = --mrInk: no grey edge around or below the app */
+}
+
+/* ---------- Ilse's Ledger ---------- */
 
 .ilseLogo {
     color: var(--sapBrandColor);
@@ -26,6 +124,20 @@
 
 /* Printing the dossier: only the dossier, no buttons or tabs. */
 @media print {
+    /* The dossier goes on paper for the council: dark ink on white, not cream on ink. */
+    html,
+    body,
+    .mrTheme {
+        --sapBackgroundColor: #fff;
+        --sapObjectHeader_Background: #fff;
+        --sapGroup_ContentBackground: #fff;
+        --sapList_Background: #fff;
+        --sapTextColor: #1a120b;
+        --sapList_TextColor: #1a120b;
+        --sapTitleColor: #1a120b;
+        --sapContent_LabelColor: #4a3a2a;
+        background: #fff !important;
+    }
     .ilseNoPrint,
     .sapFDynamicPageTitle,
     .sapMITH {

@@ -1,5 +1,5 @@
 <core:FragmentDefinition xmlns="sap.m" xmlns:core="sap.ui.core">
-    <Dialog id="markDialog" title="{ledger>/mark/title}" contentWidth="34rem" class="sapUiContentPadding">
+    <Dialog id="markDialog" title="{ledger>/mark/title}" contentWidth="34rem" class="mrTheme sapUiContentPadding">
         <content>
             <VBox id="markContent">
                 <Label id="markWhatLabel" text="{i18n>markWhatWeSee}" design="Bold" />

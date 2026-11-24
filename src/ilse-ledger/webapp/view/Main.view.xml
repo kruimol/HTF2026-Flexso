@@ -6,14 +6,15 @@
     xmlns:core="sap.ui.core"
     core:require="{ formatter: 'ilse/ledger/model/formatter' }"
     displayBlock="true"
-    height="100%">
-    <f:DynamicPage id="page" toggleHeaderOnTitleClick="false">
+    height="100%"
+    class="mrTheme">
+    <f:DynamicPage id="page" toggleHeaderOnTitleClick="false" backgroundDesign="Transparent">
         <f:title>
             <f:DynamicPageTitle id="pageTitle">
                 <f:heading>
                     <HBox id="pageHeading" alignItems="Center">
                         <core:Icon id="pageLogo" src="sap-icon://ti/book" size="1.75rem" class="ilseLogo sapUiSmallMarginEnd" />
-                        <Title id="pageTitleText" text="{i18n>appTitle}" level="H1" wrapping="false" />
+                        <Title id="pageTitleText" text="{i18n>appTitle}" level="H1" wrapping="false" class="mrPageTitle" />
                     </HBox>
                 </f:heading>
                 <f:expandedContent>
@@ -36,7 +37,7 @@
         </f:title>
 
         <f:content>
-            <IconTabBar id="tabs" expandable="false" busy="{ledger>/busy}" class="sapUiResponsiveContentPadding">
+            <IconTabBar id="tabs" expandable="false" busy="{ledger>/busy}" headerBackgroundDesign="Transparent" backgroundDesign="Transparent" class="sapUiResponsiveContentPadding">
                 <items>
                     <!-- ====================== Suspicious records ====================== -->
                     <IconTabFilter id="tabFindings" icon="sap-icon://ti/alert-triangle" text="{i18n>tabFindings}" count="{= ${ledger>/records}.length }" key="findings">
@@ -79,7 +80,7 @@
                     <!-- ====================== Moments ====================== -->
                     <IconTabFilter id="tabMoments" icon="sap-icon://ti/clock-hour-3" text="{i18n>tabMoments}" count="{= ${ledger>/moments}.length }" key="moments">
                         <Text id="momentsIntro" text="{i18n>momentsIntro}" class="ilseIntro sapUiSmallMarginBottom" />
-                        <List id="momentsList" items="{ path: 'ledger>/moments', templateShareable: false }" noDataText="{i18n>noMoments}" showSeparators="Inner">
+                        <List id="momentsList" backgroundDesign="Transparent" items="{ path: 'ledger>/moments', templateShareable: false }" noDataText="{i18n>noMoments}" showSeparators="Inner">
                             <CustomListItem id="momentItem" highlight="{= ${ledger>many} ? 'Error' : 'Warning' }">
                                 <VBox id="momentBox" class="sapUiSmallMargin">
                                     <ObjectStatus id="momentCount" text="{ledger>countText}" icon="sap-icon://ti/clock-hour-3" state="{= ${ledger>many} ? 'Error' : 'Warning' }" />
@@ -129,9 +130,9 @@
                             <ToolbarSpacer id="dossierSpacer" />
                             <Button id="printButton" text="{i18n>printButton}" icon="sap-icon://ti/printer" press=".onPrint" enabled="{= ${ledger>/dossier}.length > 0 }" />
                         </Toolbar>
-                        <Title id="dossierTitle" text="{i18n>dossierTitle}" level="H2" class="sapUiSmallMarginBottom" />
+                        <Title id="dossierTitle" text="{i18n>dossierTitle}" level="H2" class="mrHeading sapUiSmallMarginBottom" />
                         <Text id="dossierIntro" text="{i18n>dossierIntro}" class="ilseIntro sapUiSmallMarginBottom" />
-                        <List id="dossierList" items="{ path: 'ledger>/dossier', templateShareable: false }" noDataText="{i18n>dossierEmpty}" showSeparators="Inner">
+                        <List id="dossierList" backgroundDesign="Transparent" items="{ path: 'ledger>/dossier', templateShareable: false }" noDataText="{i18n>dossierEmpty}" showSeparators="Inner">
                             <CustomListItem id="dossierItem">
                                 <VBox id="dossierBox" class="sapUiSmallMargin ilseDossierItem">
                                     <ObjectIdentifier id="dossierRecord" title="{ledger>recordLabel}" text="{ledger>register}" />
