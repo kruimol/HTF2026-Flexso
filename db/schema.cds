@@ -186,3 +186,17 @@ entity RecordSeals {
   modifiedAt     : Timestamp;    // modifiedAt of the record when it was sealed
   sealedAt       : Timestamp;
 }
+
+// ---------------------------------------------------------------------------
+// The Council's Monday — what the village council decided to pay for, per week
+// ---------------------------------------------------------------------------
+
+/** One line of the council's weekly plan: a problem it decided to spend money on. */
+entity CouncilDecisions : cuid, managed {
+  weekStart  : Date;                    // the Monday of the meeting
+  problemKey : String;                  // water:<pipeID> | food:<itemID>
+  kind       : String;                  // water | food
+  title      : String;                  // what it was about, e.g. "North Mill House → North Residential Area"
+  cost       : Integer;                 // crowns out of the weekly budget
+  note       : String(500);             // optional note of the council
+}
