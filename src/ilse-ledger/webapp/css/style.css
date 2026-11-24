@@ -1,0 +1,34 @@
+/* Ilse's Ledger: small touches on top of sap_horizon_dark. Theme parameters only. */
+
+.ilseLogo {
+    color: var(--sapBrandColor);
+}
+
+.ilseIntro {
+    max-width: 60rem;
+    color: var(--sapContent_LabelColor);
+}
+
+.ilseReason {
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.ilseQuote {
+    font-style: italic;
+    color: var(--sapContent_LabelColor);
+}
+
+.ilseDossierItem {
+    border-left: 0.25rem solid var(--sapNegativeColor);
+    padding-left: 0.75rem;
+}
+
+/* Printing the dossier: only the dossier, no buttons or tabs. */
+@media print {
+    .ilseNoPrint,
+    .sapFDynamicPageTitle,
+    .sapMITH {
+        display: none !important;
+    }
+}

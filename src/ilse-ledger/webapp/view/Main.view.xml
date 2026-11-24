@@ -1,0 +1,155 @@
+<mvc:View
+    controllerName="ilse.ledger.controller.Main"
+    xmlns="sap.m"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns:f="sap.f"
+    xmlns:core="sap.ui.core"
+    core:require="{ formatter: 'ilse/ledger/model/formatter' }"
+    displayBlock="true"
+    height="100%">
+    <f:DynamicPage id="page" toggleHeaderOnTitleClick="false">
+        <f:title>
+            <f:DynamicPageTitle id="pageTitle">
+                <f:heading>
+                    <HBox id="pageHeading" alignItems="Center">
+                        <core:Icon id="pageLogo" src="sap-icon://ti/book" size="1.75rem" class="ilseLogo sapUiSmallMarginEnd" />
+                        <Title id="pageTitleText" text="{i18n>appTitle}" level="H1" wrapping="false" />
+                    </HBox>
+                </f:heading>
+                <f:expandedContent>
+                    <Label id="pageSubtitle" text="{i18n>pageSubtitle}" />
+                </f:expandedContent>
+                <f:snappedContent>
+                    <Label id="pageSubtitleSnapped" text="{i18n>pageSubtitle}" />
+                </f:snappedContent>
+                <f:content>
+                    <HBox id="summaryBox" alignItems="Center" wrap="Wrap">
+                        <ObjectStatus id="summarySuspect" text="{ledger>/summary/suspect}" icon="sap-icon://ti/alert-triangle" state="Warning" class="sapUiMediumMarginEnd" />
+                        <ObjectStatus id="summaryMarked" text="{ledger>/summary/marked}" icon="sap-icon://ti/flag-3" state="Error" class="sapUiMediumMarginEnd" />
+                        <ObjectStatus id="summarySeal" text="{ledger>/seal/title}" icon="{ledger>/seal/icon}" state="{ledger>/seal/state}" />
+                    </HBox>
+                </f:content>
+                <f:actions>
+                    <Button id="refreshButton" icon="sap-icon://refresh" tooltip="{i18n>refresh}" press=".onRefresh" />
+                </f:actions>
+            </f:DynamicPageTitle>
+        </f:title>
+
+        <f:content>
+            <IconTabBar id="tabs" expandable="false" busy="{ledger>/busy}" class="sapUiResponsiveContentPadding">
+                <items>
+                    <!-- ====================== Suspicious records ====================== -->
+                    <IconTabFilter id="tabFindings" icon="sap-icon://ti/alert-triangle" text="{i18n>tabFindings}" count="{= ${ledger>/records}.length }" key="findings">
+                        <Text id="findingsIntro" text="{i18n>findingsIntro}" class="ilseIntro sapUiSmallMarginBottom" />
+                        <Table id="findingsTable" items="{ path: 'ledger>/records', templateShareable: false }" noDataText="{i18n>noFindings}" popinLayout="GridSmall">
+                            <columns>
+                                <Column id="colRecord" width="14rem"><Text id="colRecordHdr" text="{i18n>colRecord}" /></Column>
+                                <Column id="colWhy"><Text id="colWhyHdr" text="{i18n>colWhy}" /></Column>
+                                <Column id="colLastChange" width="13rem" minScreenWidth="Tablet" demandPopin="true"><Text id="colLastChangeHdr" text="{i18n>colLastChange}" /></Column>
+                                <Column id="colTrust" width="16rem" minScreenWidth="Tablet" demandPopin="true"><Text id="colTrustHdr" text="{i18n>colTrust}" /></Column>
+                            </columns>
+                            <items>
+                                <ColumnListItem id="findingItem" vAlign="Top" highlight="{= ${ledger>untrusted} ? 'Error' : 'Warning' }">
+                                    <cells>
+                                        <ObjectIdentifier id="findingRecord" title="{ledger>recordLabel}" text="{ledger>register}" />
+                                        <VBox id="findingReasons" items="{ path: 'ledger>reasons', templateShareable: false }">
+                                            <VBox id="findingReason" class="sapUiTinyMarginBottom">
+                                                <ObjectStatus id="findingRule" text="{ledger>ruleText}" icon="{ledger>icon}" state="Warning" />
+                                                <Text id="findingExplanation" text="{ledger>explanation}" class="ilseReason" />
+                                            </VBox>
+                                        </VBox>
+                                        <Text id="findingChanged" text="{ledger>changedText}" />
+                                        <VBox id="findingTrust">
+                                            <ObjectStatus id="findingTrustStatus"
+                                                text="{= ${ledger>untrusted} ? ${i18n>untrusted} : ${i18n>trusted} }"
+                                                icon="{= ${ledger>untrusted} ? 'sap-icon://ti/flag-3' : 'sap-icon://ti/clock-hour-3' }"
+                                                state="{= ${ledger>untrusted} ? 'Error' : 'None' }" />
+                                            <Text id="findingMarkReason" text="{ledger>markReasonText}" visible="{ledger>untrusted}" class="ilseQuote sapUiTinyMarginTop" />
+                                            <Button id="markButton" text="{i18n>markButton}" icon="sap-icon://ti/flag-3" type="Emphasized"
+                                                visible="{= !${ledger>untrusted} }" press=".onMark" class="sapUiTinyMarginTop" />
+                                            <Button id="clearButton" text="{i18n>clearButton}" icon="sap-icon://ti/flag-off" type="Transparent"
+                                                visible="{ledger>untrusted}" press=".onClearMark" class="sapUiTinyMarginTop" />
+                                        </VBox>
+                                    </cells>
+                                </ColumnListItem>
+                            </items>
+                        </Table>
+                    </IconTabFilter>
+
+                    <!-- ====================== Moments ====================== -->
+                    <IconTabFilter id="tabMoments" icon="sap-icon://ti/clock-hour-3" text="{i18n>tabMoments}" count="{= ${ledger>/moments}.length }" key="moments">
+                        <Text id="momentsIntro" text="{i18n>momentsIntro}" class="ilseIntro sapUiSmallMarginBottom" />
+                        <List id="momentsList" items="{ path: 'ledger>/moments', templateShareable: false }" noDataText="{i18n>noMoments}" showSeparators="Inner">
+                            <CustomListItem id="momentItem" highlight="{= ${ledger>many} ? 'Error' : 'Warning' }">
+                                <VBox id="momentBox" class="sapUiSmallMargin">
+                                    <ObjectStatus id="momentCount" text="{ledger>countText}" icon="sap-icon://ti/clock-hour-3" state="{= ${ledger>many} ? 'Error' : 'Warning' }" />
+                                    <Title id="momentSummary" text="{ledger>summary}" level="H3" wrapping="true" class="sapUiTinyMarginTop" />
+                                    <Text id="momentRecords" text="{ledger>records}" class="sapUiTinyMarginTop" />
+                                </VBox>
+                            </CustomListItem>
+                        </List>
+                    </IconTabFilter>
+
+                    <!-- ====================== Sealed ledger ====================== -->
+                    <IconTabFilter id="tabLedger" icon="sap-icon://ti/book" text="{i18n>tabLedger}" key="ledger">
+                        <Text id="ledgerIntro" text="{i18n>ledgerIntro}" class="ilseIntro sapUiSmallMarginBottom" />
+                        <MessageStrip id="sealStrip" text="{ledger>/seal/message}" type="{ledger>/seal/strip}" showIcon="true" class="sapUiSmallMarginBottom" />
+                        <Table id="ledgerTable"
+                            items="{ path: '/LedgerEntries', parameters: { $orderby: 'seq desc' }, templateShareable: false }"
+                            noDataText="{i18n>noEntries}" growing="true" growingThreshold="50" popinLayout="GridSmall">
+                            <columns>
+                                <Column id="colPage" width="4rem"><Text id="colPageHdr" text="{i18n>colPage}" /></Column>
+                                <Column id="colWhen" width="12rem"><Text id="colWhenHdr" text="{i18n>colWhen}" /></Column>
+                                <Column id="colWhat"><Text id="colWhatHdr" text="{i18n>colWhat}" /></Column>
+                                <Column id="colField" minScreenWidth="Tablet" demandPopin="true"><Text id="colFieldHdr" text="{i18n>colField}" /></Column>
+                                <Column id="colChange" minScreenWidth="Tablet" demandPopin="true"><Text id="colChangeHdr" text="{i18n>colChange}" /></Column>
+                                <Column id="colBy" width="12rem" minScreenWidth="Tablet" demandPopin="true"><Text id="colByHdr" text="{i18n>colBy}" /></Column>
+                            </columns>
+                            <items>
+                                <ColumnListItem id="ledgerItem" vAlign="Top" highlight="{= ${outsideApps} ? 'Error' : 'None' }">
+                                    <cells>
+                                        <Text id="ledgerSeq" text="{seq}" />
+                                        <Text id="ledgerAt" text="{ path: 'at', targetType: 'any', formatter: 'formatter.dateTime' }" />
+                                        <Text id="ledgerRecord" text="{recordLabel}" />
+                                        <Text id="ledgerField" text="{field}" />
+                                        <Text id="ledgerChange" text="{ parts: ['i18n>change', 'oldValue', 'newValue', 'i18n>empty'], formatter: '.formatChange' }" />
+                                        <VBox id="ledgerByBox">
+                                            <Text id="ledgerBy" text="{changedBy}" />
+                                            <ObjectStatus id="ledgerOutside" text="{i18n>outsideApps}" icon="sap-icon://ti/door-exit" state="Error" visible="{= !!${outsideApps} }" />
+                                        </VBox>
+                                    </cells>
+                                </ColumnListItem>
+                            </items>
+                        </Table>
+                    </IconTabFilter>
+
+                    <!-- ====================== Dossier for the council ====================== -->
+                    <IconTabFilter id="tabDossier" icon="sap-icon://ti/file-certificate" text="{i18n>tabDossier}" count="{= ${ledger>/dossier}.length }" key="dossier">
+                        <Toolbar id="dossierToolbar" design="Transparent" class="ilseNoPrint">
+                            <ToolbarSpacer id="dossierSpacer" />
+                            <Button id="printButton" text="{i18n>printButton}" icon="sap-icon://ti/printer" press=".onPrint" enabled="{= ${ledger>/dossier}.length > 0 }" />
+                        </Toolbar>
+                        <Title id="dossierTitle" text="{i18n>dossierTitle}" level="H2" class="sapUiSmallMarginBottom" />
+                        <Text id="dossierIntro" text="{i18n>dossierIntro}" class="ilseIntro sapUiSmallMarginBottom" />
+                        <List id="dossierList" items="{ path: 'ledger>/dossier', templateShareable: false }" noDataText="{i18n>dossierEmpty}" showSeparators="Inner">
+                            <CustomListItem id="dossierItem">
+                                <VBox id="dossierBox" class="sapUiSmallMargin ilseDossierItem">
+                                    <ObjectIdentifier id="dossierRecord" title="{ledger>recordLabel}" text="{ledger>register}" />
+                                    <Text id="dossierReason" text="{ledger>markReasonText}" class="ilseQuote sapUiTinyMarginTop" />
+                                    <VBox id="dossierReasons" items="{ path: 'ledger>reasons', templateShareable: false }" class="sapUiTinyMarginTop">
+                                        <HBox id="dossierLine" alignItems="Start" class="sapUiTinyMarginBottom">
+                                            <core:Icon id="dossierLineIcon" src="{ledger>icon}" class="sapUiTinyMarginEnd" />
+                                            <Text id="dossierLineText" text="{ledger>explanation}" />
+                                        </HBox>
+                                    </VBox>
+                                    <Text id="dossierChanged" text="{ledger>changedText}" class="sapUiTinyMarginTop" />
+                                    <Text id="dossierMarked" text="{ledger>markedText}" class="ilseQuote" />
+                                </VBox>
+                            </CustomListItem>
+                        </List>
+                    </IconTabFilter>
+                </items>
+            </IconTabBar>
+        </f:content>
+    </f:DynamicPage>
+</mvc:View>

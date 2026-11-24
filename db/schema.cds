@@ -144,3 +144,45 @@ entity StockCounts : cuid, managed {
   consumed    : Decimal(9, 2);   // used since the previous count (null for the first count)
   days        : Integer;         // days between the previous count and this one
 }
+
+// ---------------------------------------------------------------------------
+// Ilse's Ledger — evidence of tampering: marks, a sealed change log and record fingerprints
+// ---------------------------------------------------------------------------
+
+/** Ilse marked a record as "not to be trusted": nobody should act on it. */
+entity TrustMarks : cuid, managed {
+  entityName  : String;                // e.g. "Sensors"
+  recordID    : UUID;                  // ID of the marked record
+  recordLabel : String;                // human label, e.g. "SENS-004"
+  reason      : String(1000);          // Ilse's own words
+  markedBy    : String;
+  active      : Boolean default true;  // false = the mark was lifted (kept as evidence)
+}
+
+/**
+ * One page of the sealed ledger: one changed field of one record. Every page carries the hash of
+ * the page before it, so removing or editing an old page breaks the chain (see srv/lib/ledger-seal.ts).
+ */
+entity LedgerEntries : cuid {
+  seq        : Integer;      // page number, 1, 2, 3 …
+  at         : Timestamp;    // when the ledger noticed the change
+  entityName : String;
+  recordID   : UUID;
+  recordLabel: String;
+  field      : String;
+  oldValue   : String(1000);
+  newValue   : String(1000);
+  changedBy  : String;       // modifiedBy of the record, or "?" when it changed outside the apps
+  outsideApps: Boolean default false; // the record changed but its modifiedAt did not
+  prevHash   : String(64);
+  hash       : String(64);
+}
+
+/** Last known state of a followed record: what the ledger compares against. */
+entity RecordSeals {
+  key entityName : String;
+  key recordID   : UUID;
+  snapshot       : LargeString;  // JSON of the followed fields
+  modifiedAt     : Timestamp;    // modifiedAt of the record when it was sealed
+  sealedAt       : Timestamp;
+}

@@ -1,0 +1,320 @@
+import Log from "sap/base/Log";
+import MessageBox from "sap/m/MessageBox";
+import MessageToast from "sap/m/MessageToast";
+import type Button from "sap/m/Button";
+import type { Button$PressEvent } from "sap/m/Button";
+import type Dialog from "sap/m/Dialog";
+import type Table from "sap/m/Table";
+import Fragment from "sap/ui/core/Fragment";
+import Controller from "sap/ui/core/mvc/Controller";
+import type ResourceBundle from "sap/base/i18n/ResourceBundle";
+import type ResourceModel from "sap/ui/model/resource/ResourceModel";
+import type ODataModel from "sap/ui/model/odata/v4/ODataModel";
+import type ODataListBinding from "sap/ui/model/odata/v4/ODataListBinding";
+import JSONModel from "sap/ui/model/json/JSONModel";
+import Filter from "sap/ui/model/Filter";
+import FilterOperator from "sap/ui/model/FilterOperator";
+import { dateTime, ruleIcon } from "../model/formatter";
+
+/** Text from the i18n bundle; the key itself when it is missing. */
+function t(bundle: ResourceBundle, key: string, args?: unknown[]): string {
+  return bundle.getText(key, args) ?? key;
+}
+
+/** One finding, as `findings()` sends it. */
+interface FindingData {
+  entityName: string;
+  register: string;
+  recordID: string;
+  recordLabel: string;
+  rule: string;
+  explanation: string;
+  changedBy: string;
+  changedAt: string | null;
+  untrusted: boolean;
+  mark_ID: string | null;
+  markReason: string | null;
+}
+
+/** One moment, as `events()` sends it. */
+interface EventData {
+  at: string;
+  changedBy: string;
+  recordCount: number;
+  records: string;
+  summary: string;
+}
+
+interface LedgerCheckData {
+  intact: boolean;
+  pages: number;
+  brokenAtSeq: number | null;
+  message: string;
+}
+
+interface MarkData {
+  ID: string;
+  markedBy: string | null;
+  createdAt: string | null;
+}
+
+interface Reason {
+  rule: string;
+  ruleText: string;
+  icon: string;
+  explanation: string;
+}
+
+/** One suspicious record with all the checks it breaks: one row, one mark. */
+interface RecordRow {
+  key: string;
+  entityName: string;
+  register: string;
+  recordID: string;
+  recordLabel: string;
+  changedText: string;
+  reasons: Reason[];
+  untrusted: boolean;
+  markID: string | null;
+  markReasonText: string;
+  markedText: string;
+}
+
+/**
+ * The one page of Ilse's Ledger. Findings, moments and the seal check come from the OData
+ * functions of LedgerService; this controller groups the findings per record (Ilse marks a
+ * record, not a single check) and keeps them in the "ledger" view model. The sealed ledger
+ * table is bound straight to `/LedgerEntries`.
+ *
+ * @namespace ilse.ledger.controller
+ */
+export default class Main extends Controller {
+  private markDialog?: Dialog;
+
+  public onInit(): void {
+    this.getView()?.setModel(
+      new JSONModel({
+        busy: true,
+        records: [],
+        dossier: [],
+        moments: [],
+        summary: { suspect: "", marked: "" },
+        seal: { title: "", message: "", state: "None", strip: "Information", icon: "" },
+        mark: { title: "", entityName: "", recordID: "", recordLabel: "", reasons: [], reason: "" },
+      }),
+      "ledger",
+    );
+    void this.load();
+  }
+
+  public onExit(): void {
+    this.markDialog?.destroy();
+  }
+
+  public onRefresh(): void {
+    void this.load();
+  }
+
+  /** "40 → 999" for a ledger page; "(leeg)" for an empty side. */
+  public formatChange(pattern: string, oldValue: string | null, newValue: string | null, empty: string): string {
+    if (!pattern) return "";
+    return pattern.replace("{0}", oldValue || empty).replace("{1}", newValue || empty);
+  }
+
+  public async onMark(event: Button$PressEvent): Promise<void> {
+    const row = (event.getSource() as Button).getBindingContext("ledger")?.getObject() as RecordRow | undefined;
+    if (!row) return;
+    const bundle = await this.getBundle();
+    this.getLedgerModel().setProperty("/mark", {
+      title: t(bundle, "markTitle", [row.recordLabel]),
+      entityName: row.entityName,
+      recordID: row.recordID,
+      recordLabel: row.recordLabel,
+      reasons: row.reasons,
+      reason: "",
+    });
+    const dialog = await this.getMarkDialog();
+    dialog.open();
+  }
+
+  public onCancelMark(): void {
+    this.markDialog?.close();
+  }
+
+  public async onSaveMark(): Promise<void> {
+    const mark = this.getLedgerModel().getProperty("/mark") as {
+      entityName: string;
+      recordID: string;
+      recordLabel: string;
+      reason: string;
+    };
+    const binding = this.getODataModel().bindContext("/markUntrusted(...)");
+    binding.setParameter("entityName", mark.entityName);
+    binding.setParameter("recordID", mark.recordID);
+    binding.setParameter("recordLabel", mark.recordLabel);
+    binding.setParameter("reason", mark.reason);
+    this.markDialog?.setBusy(true);
+    try {
+      await binding.invoke();
+      this.markDialog?.close();
+      MessageToast.show(t(await this.getBundle(), "markedToast", [mark.recordLabel]));
+      await this.load();
+    } catch (error) {
+      Log.error("markUntrusted failed", String(error));
+      MessageBox.error((error as Error).message);
+    } finally {
+      this.markDialog?.setBusy(false);
+    }
+  }
+
+  public async onClearMark(event: Button$PressEvent): Promise<void> {
+    const row = (event.getSource() as Button).getBindingContext("ledger")?.getObject() as RecordRow | undefined;
+    if (!row?.markID) return;
+    const bundle = await this.getBundle();
+    MessageBox.confirm(t(bundle, "clearConfirm", [row.recordLabel]), {
+      actions: [t(bundle, "clearButton"), MessageBox.Action.CANCEL],
+      emphasizedAction: MessageBox.Action.CANCEL,
+      onClose: (action: string | null) => {
+        if (action === MessageBox.Action.CANCEL || !row.markID) return;
+        void this.clearMark(row.markID, row.recordLabel);
+      },
+    });
+  }
+
+  public onPrint(): void {
+    // The tsconfig has no DOM lib: describe the one browser function we use.
+    (globalThis as unknown as { print(): void }).print();
+  }
+
+  private async clearMark(markID: string, label: string): Promise<void> {
+    const binding = this.getODataModel().bindContext("/clearMark(...)");
+    binding.setParameter("mark_ID", markID);
+    try {
+      await binding.invoke();
+      MessageToast.show(t(await this.getBundle(), "clearedToast", [label]));
+      await this.load();
+    } catch (error) {
+      Log.error("clearMark failed", String(error));
+      MessageBox.error((error as Error).message);
+    }
+  }
+
+  private async load(): Promise<void> {
+    const ledgerModel = this.getLedgerModel();
+    ledgerModel.setProperty("/busy", true);
+    try {
+      const model = this.getODataModel();
+      const bundle = await this.getBundle();
+      // findings() first: it brings the sealed ledger up to date before anything else is read.
+      const findings = (await model.bindList("/findings()").requestContexts(0, 1000)).map(
+        (context) => context.getObject() as FindingData,
+      );
+      const [events, check, marks] = await Promise.all([
+        model.bindList("/events()").requestContexts(0, 200),
+        model.bindContext("/verifyLedger()").getBoundContext()?.requestObject() as Promise<LedgerCheckData>,
+        model
+          .bindList("/TrustMarks", undefined, undefined, [new Filter("active", FilterOperator.EQ, true)])
+          .requestContexts(0, 1000),
+      ]);
+      const markInfo = new Map(
+        marks.map((context) => {
+          const mark = context.getObject() as MarkData;
+          return [mark.ID, mark];
+        }),
+      );
+
+      const records = this.toRecords(findings, markInfo, bundle);
+      ledgerModel.setProperty("/records", records);
+      ledgerModel.setProperty("/dossier", records.filter((row) => row.untrusted));
+      ledgerModel.setProperty(
+        "/moments",
+        events.map((context) => {
+          const moment = context.getObject() as EventData;
+          return {
+            ...moment,
+            many: moment.recordCount > 1,
+            countText: moment.recordCount > 1 ? t(bundle, "momentMany", [moment.recordCount]) : t(bundle, "momentOne"),
+          };
+        }),
+      );
+      ledgerModel.setProperty("/summary", {
+        suspect: t(bundle, "summarySuspect", [records.length]),
+        marked: t(bundle, "summaryMarked", [records.filter((row) => row.untrusted).length]),
+      });
+      ledgerModel.setProperty("/seal", {
+        title: t(bundle, check.intact ? "sealIntact" : "sealBroken"),
+        message: check.message,
+        state: check.intact ? "Success" : "Error",
+        strip: check.intact ? "Success" : "Error",
+        icon: check.intact ? "sap-icon://ti/shield-check" : "sap-icon://ti/shield-x",
+      });
+      const ledgerTable = this.byId("ledgerTable") as Table | undefined;
+      (ledgerTable?.getBinding("items") as ODataListBinding | undefined)?.refresh();
+    } catch (error) {
+      Log.error("loading the ledger failed", String(error));
+      MessageBox.error(t(await this.getBundle(), "loadError"));
+    } finally {
+      ledgerModel.setProperty("/busy", false);
+    }
+  }
+
+  /** Findings → one row per record, in the order the server sent them (worst moment first). */
+  private toRecords(findings: readonly FindingData[], marks: ReadonlyMap<string, MarkData>, bundle: ResourceBundle): RecordRow[] {
+    const rows = new Map<string, RecordRow>();
+    for (const finding of findings) {
+      const key = `${finding.entityName}|${finding.recordID}`;
+      let row = rows.get(key);
+      if (!row) {
+        const mark = finding.mark_ID ? marks.get(finding.mark_ID) : undefined;
+        row = {
+          key,
+          entityName: finding.entityName,
+          register: finding.register,
+          recordID: finding.recordID,
+          recordLabel: finding.recordLabel,
+          changedText: finding.changedAt ? t(bundle, "lastChange", [dateTime(finding.changedAt), finding.changedBy]) : "",
+          reasons: [],
+          untrusted: finding.untrusted,
+          markID: finding.mark_ID,
+          markReasonText: finding.markReason ? t(bundle, "markedReason", [finding.markReason]) : "",
+          markedText: mark ? t(bundle, "dossierMarkedBy", [mark.markedBy ?? "", dateTime(mark.createdAt)]) : "",
+        };
+        rows.set(key, row);
+      }
+      row.reasons.push({
+        rule: finding.rule,
+        ruleText: t(bundle, `rule_${finding.rule}`),
+        icon: ruleIcon(finding.rule),
+        explanation: finding.explanation,
+      });
+    }
+    return [...rows.values()];
+  }
+
+  private async getMarkDialog(): Promise<Dialog> {
+    if (!this.markDialog) {
+      const view = this.getView();
+      if (!view) throw new Error("view not ready");
+      this.markDialog = (await Fragment.load({
+        id: view.getId(),
+        name: "ilse.ledger.view.MarkDialog",
+        controller: this,
+      })) as Dialog;
+      view.addDependent(this.markDialog);
+    }
+    return this.markDialog;
+  }
+
+  private getLedgerModel(): JSONModel {
+    return this.getView()?.getModel("ledger") as JSONModel;
+  }
+
+  private getODataModel(): ODataModel {
+    return this.getOwnerComponent()?.getModel() as ODataModel;
+  }
+
+  private async getBundle(): Promise<ResourceBundle> {
+    const i18n = this.getOwnerComponent()?.getModel("i18n") as ResourceModel;
+    return (await i18n.getResourceBundle()) as ResourceBundle;
+  }
+}
