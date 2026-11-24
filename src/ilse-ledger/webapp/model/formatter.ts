@@ -19,6 +19,7 @@ const RULE_ICONS: Readonly<Record<string, string>> = {
   noName: "sap-icon://ti/user-off",
   nightChange: "sap-icon://ti/moon",
   hiddenText: "sap-icon://ti/eye",
+  otherRegister: "sap-icon://ti/arrows-exchange",
   unknownPerson: "sap-icon://ti/user-question",
   enteredByOther: "sap-icon://ti/users",
   outsideApps: "sap-icon://ti/door-exit",

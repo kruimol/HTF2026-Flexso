@@ -22,7 +22,7 @@ service LedgerService @(path: 'ledger', impl: 'srv/ledger-service') {
     recordID    : UUID;
     recordLabel : String;
     rule        : String;   // sourcesDisagree | overCapacity | impossibleValue | futureDate | beforeRegister
-                            // | unknownEditor | systemAccount | noName | nightChange | hiddenText
+                            // | unknownEditor | systemAccount | noName | nightChange | hiddenText | otherRegister
                             // | unknownPerson | enteredByOther | outsideApps
     explanation : String;   // one sentence Ilse can explain to the council
     changedBy   : String;   // modifiedBy of the record: a fact, not an accusation

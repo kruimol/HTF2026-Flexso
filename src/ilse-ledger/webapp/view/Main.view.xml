@@ -26,6 +26,7 @@
                 <f:content>
                     <HBox id="summaryBox" alignItems="Center" wrap="Wrap">
                         <ObjectStatus id="summarySuspect" text="{ledger>/summary/suspect}" icon="sap-icon://ti/alert-triangle" state="Warning" class="sapUiMediumMarginEnd" />
+                        <ObjectStatus id="summaryAsk" text="{ledger>/summary/ask}" icon="sap-icon://ti/arrows-exchange" state="Information" class="sapUiMediumMarginEnd" />
                         <ObjectStatus id="summaryMarked" text="{ledger>/summary/marked}" icon="sap-icon://ti/flag-3" state="Error" class="sapUiMediumMarginEnd" />
                         <ObjectStatus id="summarySeal" text="{ledger>/seal/title}" icon="{ledger>/seal/icon}" state="{ledger>/seal/state}" />
                     </HBox>
@@ -63,12 +64,12 @@
                                 <Column id="colTrust" width="16rem" minScreenWidth="Tablet" demandPopin="true"><Text id="colTrustHdr" text="{i18n>colTrust}" /></Column>
                             </columns>
                             <items>
-                                <ColumnListItem id="findingItem" vAlign="Top" highlight="{= ${ledger>untrusted} ? 'Error' : 'Warning' }">
+                                <ColumnListItem id="findingItem" vAlign="Top" highlight="{= ${ledger>untrusted} ? 'Error' : (${ledger>askOnly} ? 'Information' : 'Warning') }">
                                     <cells>
                                         <ObjectIdentifier id="findingRecord" title="{ledger>recordLabel}" text="{ledger>register}" />
                                         <VBox id="findingReasons" items="{ path: 'ledger>reasons', templateShareable: false }">
                                             <VBox id="findingReason" class="sapUiTinyMarginBottom">
-                                                <ObjectStatus id="findingRule" text="{ledger>ruleText}" icon="{ledger>icon}" state="Warning" />
+                                                <ObjectStatus id="findingRule" text="{ledger>ruleText}" icon="{ledger>icon}" state="{ledger>state}" />
                                                 <Text id="findingExplanation" text="{ledger>explanation}" class="ilseReason" />
                                             </VBox>
                                         </VBox>

@@ -84,6 +84,7 @@ export type Rule =
   | 'noName'
   | 'nightChange'
   | 'hiddenText'
+  | 'otherRegister'
   | 'unknownPerson'
   | 'enteredByOther'
   | 'outsideApps';
@@ -141,11 +142,32 @@ const NO_NAME = new Set(['anonymous', 'unknown', '']);
 const NIGHT_FROM_HOUR = 0;
 const NIGHT_UNTIL_HOUR = 4;
 
-/*
- * Note: who may write in which register (e.g. Tobin in the water register) is deliberately NOT a
- * check. Ilse: "Of Tobin aan de watersensoren mag komen, weet ik niet; dat moet je aan Maren Holt
- * vragen." Until the owner of a register says so, writing in it is not suspicious by itself.
+/**
+ * Who looks after which register: Maren the water (pipes, sensors, repairs), Tobin "alles over
+ * voedsel en voorraden", the council the places.
  */
+const REGISTER_OWNERS: Readonly<Record<string, { user: string; name: string; ask: string }>> = {
+  WaterPipes: { user: 'maren.holt', name: 'Maren Holt, de waterwachter', ask: 'Maren' },
+  Sensors: { user: 'maren.holt', name: 'Maren Holt, de waterwachter', ask: 'Maren' },
+  Repairs: { user: 'maren.holt', name: 'Maren Holt, de waterwachter', ask: 'Maren' },
+  StockItems: { user: 'tobin.reyes', name: 'Tobin Reyes, de bakker', ask: 'Tobin' },
+  Landmarks: { user: 'council', name: 'de dorpsraad', ask: 'de raad' },
+};
+
+/** Villagers whose writing in someone else's register is pointed out (the council registers for others). */
+const VILLAGER_ROLES: Readonly<Record<string, string>> = {
+  'maren.holt': 'Maren Holt (waterwachter)',
+  'tobin.reyes': 'Tobin Reyes (bakker)',
+  'ilse.vermeer': 'Ilse Vermeer (bibliothecaresse)',
+};
+
+/**
+ * Rules that are not suspicion but a question for the owner of the register ("na te vragen").
+ * Ilse: "Of Tobin aan de watersensoren mag komen, weet ik niet; dat moet je aan Maren Holt vragen."
+ * So writing in someone else's register is pointed out, never counted as suspicious, and never
+ * makes a moment.
+ */
+export const ASK_RULES: ReadonlySet<Rule> = new Set<Rule>(['otherRegister']);
 
 /** The villagers by name, as they appear in `Repairs.repairedBy`, with their user name. */
 const VILLAGERS: Readonly<Record<string, string>> = {
@@ -292,6 +314,11 @@ export function runChecks(registers: Registers, now: Date): Finding[] {
       } else if (!KNOWN_EDITORS.has(user)) {
         once('unknownEditor', `${verb} door '${user}'${at}. Dat is geen persoon of instantie uit het dorp.`);
       }
+      const owner = REGISTER_OWNERS[entityName];
+      const role = VILLAGER_ROLES[user];
+      if (owner && role && owner.user !== user) {
+        once('otherRegister', `${verb} door ${role}${at}. Het register ${REGISTER_NAMES[entityName] ?? entityName} hoort bij ${owner.name}. Of dat mocht, weet alleen ${owner.ask}: vraag het na. Op zich is dit geen bewijs.`);
+      }
       if (isNight(when)) {
         once('nightChange', `${verb} op ${dateTime(when as string)}, tussen middernacht en vier uur 's nachts. Dan werkt er niemand in Oakhaven.`);
       }
@@ -399,7 +426,7 @@ export function runChecks(registers: Registers, now: Date): Finding[] {
 export function groupEvents(findings: readonly Finding[]): LedgerEvent[] {
   const groups = new Map<string, { at: string; changedBy: string; records: Map<string, string>; findings: number }>();
   for (const finding of findings) {
-    if (!finding.changedAt) continue;
+    if (!finding.changedAt || ASK_RULES.has(finding.rule)) continue; // a question is not a suspicious moment
     const minute = new Date(finding.changedAt).toISOString().slice(0, 16);
     const key = `${finding.changedBy}|${minute}`;
     const group = groups.get(key) ?? { at: `${minute}:00Z`, changedBy: finding.changedBy, records: new Map(), findings: 0 };

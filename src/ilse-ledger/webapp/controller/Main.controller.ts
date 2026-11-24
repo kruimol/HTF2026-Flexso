@@ -100,7 +100,11 @@ interface MarkData {
   createdAt: string | null;
 }
 
+/** Not suspicion but a question for the register's owner (same list as the server's ASK_RULES). */
+const ASK_RULES = new Set(["otherRegister"]);
+
 interface Reason {
+  state: string;
   rule: string;
   ruleText: string;
   icon: string;
@@ -116,6 +120,7 @@ interface RecordRow {
   recordLabel: string;
   changedText: string;
   reasons: Reason[];
+  askOnly: boolean;
   untrusted: boolean;
   markID: string | null;
   markReasonText: string;
@@ -141,7 +146,7 @@ export default class Main extends Controller {
         records: [],
         dossier: [],
         moments: [],
-        summary: { suspect: "", marked: "" },
+        summary: { suspect: "", marked: "", ask: "" },
         seal: { title: "", message: "", state: "None", strip: "Information", icon: "" },
         mark: { title: "", entityName: "", recordID: "", recordLabel: "", reasons: [], reason: "" },
         lastSeen: readLastSeen(),
@@ -293,7 +298,8 @@ export default class Main extends Controller {
         }),
       );
       ledgerModel.setProperty("/summary", {
-        suspect: t(bundle, "summarySuspect", [records.length]),
+        suspect: t(bundle, "summarySuspect", [records.filter((row) => !row.askOnly).length]),
+        ask: t(bundle, "summaryAsk", [records.filter((row) => row.askOnly).length]),
         marked: t(bundle, "summaryMarked", [records.filter((row) => row.untrusted).length]),
       });
       ledgerModel.setProperty("/seal", {
@@ -362,6 +368,7 @@ export default class Main extends Controller {
           recordLabel: finding.recordLabel,
           changedText: finding.changedAt ? t(bundle, "lastChange", [dateTime(finding.changedAt), finding.changedBy]) : "",
           reasons: [],
+          askOnly: true,
           untrusted: finding.untrusted,
           markID: finding.mark_ID,
           markReasonText: finding.markReason ? t(bundle, "markedReason", [finding.markReason]) : "",
@@ -369,7 +376,10 @@ export default class Main extends Controller {
         };
         rows.set(key, row);
       }
+      const ask = ASK_RULES.has(finding.rule);
+      if (!ask) row.askOnly = false;
       row.reasons.push({
+        state: ask ? "Information" : "Warning",
         rule: finding.rule,
         ruleText: t(bundle, `rule_${finding.rule}`),
         icon: ruleIcon(finding.rule),
