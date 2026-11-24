@@ -62,6 +62,8 @@ service LedgerService @(path: 'ledger', impl: 'srv/ledger-service') {
     summary    : String;   // the current values in words, e.g. "doorstroming 142 van max. 150 L/min · druk 58 PSI"
     changedBy  : String;
     changedAt  : Timestamp;
+    createdBy  : String;
+    createdAt  : Timestamp;
     pages      : Integer;  // pages about this record in the ledger since the seal
   }
 

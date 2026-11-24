@@ -172,7 +172,7 @@ async function loadRecords(): Promise<object[]> {
   const result: object[] = [];
   for (const register of FOLLOWED) {
     const rows = (await SELECT.from(`${NS}.${register.entityName}`).columns(
-      'ID', 'modifiedAt', 'modifiedBy', ...register.fields)) as Array<Record<string, unknown> & { ID: string }>;
+      'ID', 'createdAt', 'createdBy', 'modifiedAt', 'modifiedBy', ...register.fields)) as Array<Record<string, unknown> & { ID: string }>;
     for (const row of rows) {
       result.push({
         entityName: register.entityName,
@@ -182,6 +182,8 @@ async function loadRecords(): Promise<object[]> {
         summary: summaryOf(register.entityName, row, pipeNames),
         changedBy: row.modifiedBy ?? '?',
         changedAt: row.modifiedAt ?? null,
+        createdBy: row.createdBy ?? '?',
+        createdAt: row.createdAt ?? null,
         pages: count.get(`${register.entityName}|${row.ID}`) ?? 0,
       });
     }

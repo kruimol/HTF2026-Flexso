@@ -122,6 +122,27 @@ body {
     padding-left: 0.75rem;
 }
 
+/* ---------- Timeline (static SVG: Ilse works on an old laptop) ---------- */
+.ilseAnswers {
+    max-width: 60rem;
+    border-left: 3px solid var(--mrCopper);
+    background: rgba(192, 112, 63, 0.06);
+    padding: 0.5rem 0.75rem;
+}
+.ilseTimeline svg { display: block; width: 100%; height: auto; margin-bottom: 0.5rem; }
+.ilseTime { font-family: "Courier Prime", "Courier New", monospace; font-weight: bold; color: var(--mrGold); }
+.tlAxis { stroke: rgba(243, 230, 200, 0.6); stroke-width: 2; }
+.tlTick { stroke: rgba(243, 230, 200, 0.4); stroke-width: 1.5; }
+.tlMonth, .tlLegend, .tlNowText, .tlMore { fill: rgba(243, 230, 200, 0.8); font-size: 15px; font-family: Georgia, serif; }
+.tlMore { text-anchor: middle; }
+.tlNow { stroke: var(--mrGold); stroke-width: 2; stroke-dasharray: 4 4; }
+.tlMarker { stroke: var(--sapNegativeColor); stroke-width: 2; stroke-dasharray: 6 4; }
+.tlMarkerText { fill: #f3e6c8; font-size: 16px; font-weight: bold; font-family: Georgia, serif; }
+.tlDot { stroke: #1a120b; stroke-width: 1.5; }
+.tl-normal { fill: #8d939b; }
+.tl-suspect { fill: var(--sapCriticalColor); }
+.tl-alarm { fill: var(--sapNegativeColor); }
+
 /* Printing the dossier: only the dossier, no buttons or tabs. */
 @media print {
     /* The dossier goes on paper for the council: dark ink on white, not cream on ink. */

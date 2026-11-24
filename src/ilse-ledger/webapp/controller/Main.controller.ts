@@ -16,6 +16,7 @@ import Sorter from "sap/ui/model/Sorter";
 import type ObjectIdentifier from "sap/m/ObjectIdentifier";
 import type Link from "sap/m/Link";
 import { dateTime, ruleIcon } from "../model/formatter";
+import { buildTimelineSvg, monthKey, summarize, villageTime, type Level, type TimelineEvent } from "../model/timeline";
 
 /** Text from the i18n bundle; the key itself when it is missing. */
 function t(bundle: ResourceBundle, key: string, args?: unknown[]): string {
@@ -68,6 +69,22 @@ interface PageData {
 }
 
 /** One followed record, as `records()` sends it. */
+/** Writers that are not a person, or no name at all: red on the timeline (Ilse's own words). */
+const ALARM_USERS = new Set(["system", "admin", "root", "service", "sys", "cron", "batch", "anonymous", "unknown", "", "?"]);
+
+/** 00:00 up to 04:00 village time (UTC): "dan werkt hier niemand". */
+function isNight(iso: string): boolean {
+  const hour = new Date(iso).getUTCHours();
+  return Number.isFinite(hour) && hour < 4;
+}
+
+/** An event on the timeline, as the list shows it. */
+interface TimelineRow extends TimelineEvent {
+  time: string;
+  month: string;
+  byText: string;
+}
+
 interface RecordInfoData {
   entityName: string;
   register: string;
@@ -76,6 +93,8 @@ interface RecordInfoData {
   summary: string;
   changedBy: string;
   changedAt: string | null;
+  createdBy: string;
+  createdAt: string | null;
   pages: number;
 }
 
@@ -240,7 +259,8 @@ export default class Main extends Controller {
         seal: { title: "", message: "", state: "None", strip: "Information", icon: "" },
         mark: { title: "", entityName: "", recordID: "", recordLabel: "", reasons: [], reason: "" },
         lastSeen: readLastSeen(),
-        tab: "findings",
+        tab: "timeline",
+        timeline: { all: [], view: [], svg: "", svgRecent: "", suspectOnly: false, began: "", pace: "", biggest: "" },
         book: {
           pages: [], view: [], start: -1, register: "", search: "", outsideOnly: false, newOnly: false,
           recordID: "", recordText: "", registers: [], position: "", hasPrev: false, hasNext: false, goto: "",
@@ -306,6 +326,99 @@ export default class Main extends Controller {
     const model = this.getLedgerModel();
     model.setProperty("/allRecords", rows);
     this.onAllFilter();
+    this.loadTimeline(bundle, rows, byKey);
+  }
+
+  /* ------------------------------ The timeline ------------------------------ */
+
+  public onTimelineFilter(): void {
+    const model = this.getLedgerModel();
+    const all = model.getProperty("/timeline/all") as TimelineRow[];
+    model.setProperty("/timeline/view", model.getProperty("/timeline/suspectOnly") ? all.filter((row) => row.level !== "normal") : all);
+  }
+
+  public onTimelineRecord(event: { getSource(): unknown }): void {
+    const row = (event.getSource() as Link).getBindingContext("ledger")?.getObject() as TimelineRow | undefined;
+    if (row?.recordID) void this.showHistory(row.recordID, row.recordLabel, row.register);
+  }
+
+  /**
+   * Every write on one time axis. Before the seal the registers only know "aangemaakt" and "laatst
+   * gewijzigd" per record; after the seal the ledger knows every change, so those pages are used.
+   */
+  private loadTimeline(bundle: ResourceBundle, records: readonly AllRecordRow[], findings: ReadonlyMap<string, RecordRow>): void {
+    const model = this.getLedgerModel();
+    const pages = model.getProperty("/book/pages") as BookPage[];
+    const sealAt = pages.find((page) => page.field === "(verzegeling)")?.at ?? null;
+    const events: TimelineEvent[] = [];
+    const levelOf = (user: string, at: string, outside: boolean, suspect: boolean): Level =>
+      outside || ALARM_USERS.has(user) || isNight(at) ? "alarm" : suspect ? "suspect" : "normal";
+
+    for (const record of records) {
+      const finding = findings.get(`${record.entityName}|${record.recordID}`);
+      const suspect = Boolean(finding && !finding.askOnly);
+      const reasons = suspect ? (finding?.reasons ?? []).filter((r) => r.state !== "Information").map((r) => r.ruleText).join(", ") : "";
+      const touches = [{ at: record.createdAt, by: record.createdBy, what: t(bundle, "tlCreated") }];
+      if (record.changedAt && record.changedAt !== record.createdAt) {
+        touches.push({ at: record.changedAt, by: record.changedBy, what: t(bundle, "tlModified") });
+      }
+      touches.forEach((touch, index) => {
+        if (!touch.at || (sealAt && touch.at >= sealAt)) return; // after the seal: the ledger pages tell it
+        const latest = index === touches.length - 1;
+        const level = levelOf(touch.by, touch.at, false, suspect && latest);
+        events.push({
+          at: touch.at, what: touch.what, entityName: record.entityName, register: record.register,
+          recordID: record.recordID, recordLabel: record.recordLabel, by: touch.by,
+          level, reasons: level !== "normal" ? reasons : "",
+        });
+      });
+    }
+
+    // After the seal: one event per record per moment the ledger wrote pages (Ilse's own marks left out).
+    const grouped = new Map<string, BookPage[]>();
+    for (const page of pages) {
+      if (!page.recordID || OWN_USERS.has(page.changedBy) || (sealAt && page.at < sealAt)) continue;
+      const key = `${page.at}|${page.recordID}`;
+      grouped.set(key, [...(grouped.get(key) ?? []), page]);
+    }
+    for (const group of grouped.values()) {
+      const page = group[0];
+      const finding = findings.get(`${page.entityName}|${page.recordID ?? ""}`);
+      const suspect = Boolean(finding && !finding.askOnly);
+      events.push({
+        at: page.at,
+        what: group.map((p) => (p.field.startsWith("(") ? p.changeText : `${p.fieldText}: ${p.changeText}`)).join(" · "),
+        entityName: page.entityName, register: page.registerName, recordID: page.recordID ?? "", recordLabel: page.recordLabel,
+        by: page.changedBy,
+        level: levelOf(page.changedBy, page.at, group.some((p) => p.outsideApps), suspect),
+        reasons: "",
+      });
+    }
+
+    events.sort((a, b) => a.at.localeCompare(b.at));
+    const rows: TimelineRow[] = events.map((event) => ({
+      ...event, time: villageTime(event.at), month: monthKey(event.at), byText: personName(event.by),
+    }));
+    const summary = summarize(rows.map((row) => ({ ...row, by: row.byText })));
+    const first = summary.first;
+    model.setProperty("/timeline/all", rows);
+    const texts = {
+      title: t(bundle, "tlTitle"), normal: t(bundle, "tlNormal"), suspect: t(bundle, "tlSuspect"), alarm: t(bundle, "tlAlarm"), now: t(bundle, "tlNow"),
+    };
+    const now = new Date();
+    const monthAgo = new Date(now.getTime() - 30 * 86_400_000).toISOString();
+    model.setProperty("/timeline/svg", `<div class="ilseTimeline">${buildTimelineSvg(rows, now, texts)}</div>`);
+    model.setProperty("/timeline/svgRecent", `<div class="ilseTimeline">${buildTimelineSvg(rows, now, texts, monthAgo)}</div>`);
+    model.setProperty("/timeline/began", first
+      ? t(bundle, "tlBegan", [villageTime(first.at), first.register, first.recordLabel, first.what.toLowerCase(), first.by])
+      : t(bundle, "tlBeganNone"));
+    model.setProperty("/timeline/pace", !first || !summary.last ? "" : summary.days === 1
+      ? t(bundle, "tlOneDay", [summary.suspectCount, villageTime(first.at).slice(0, 10)])
+      : t(bundle, "tlPace", [summary.suspectCount, summary.days, villageTime(first.at).slice(0, 10), villageTime(summary.last.at).slice(0, 10)]));
+    model.setProperty("/timeline/biggest", summary.biggest && summary.biggest.count > 1
+      ? t(bundle, "tlBiggest", [villageTime(summary.biggest.at), summary.biggest.count, summary.biggest.by, summary.biggest.registers])
+      : "");
+    this.onTimelineFilter();
   }
 
   /* ------------------------------ Browsing the ledger ------------------------------ */
