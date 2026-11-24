@@ -1,0 +1,39 @@
+<mvc:View
+    controllerName="oakhaven.hunt.controller.Main"
+    xmlns="sap.m"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns:f="sap.f"
+    xmlns:core="sap.ui.core"
+    displayBlock="true"
+    height="100%"
+    class="mrTheme">
+    <f:DynamicPage id="page" toggleHeaderOnTitleClick="false" backgroundDesign="Transparent">
+        <f:title>
+            <f:DynamicPageTitle id="pageTitle">
+                <f:heading>
+                    <HBox id="pageHeading" alignItems="Center">
+                        <core:Icon id="pageLogo" src="sap-icon://ti/map-search" size="1.75rem" color="#c0703f" class="sapUiSmallMarginEnd" />
+                        <Title id="pageTitleText" text="{i18n>appTitle}" level="H1" wrapping="false" class="mrPageTitle" />
+                    </HBox>
+                </f:heading>
+                <f:expandedContent>
+                    <Label id="pageSubtitle" text="{i18n>pageSubtitle}" />
+                </f:expandedContent>
+                <f:content>
+                    <ObjectStatus id="progress" text="{hunt>/progress}" icon="sap-icon://ti/rosette" state="{= ${hunt>/allFound} ? 'Success' : 'Information' }" inverted="true" />
+                </f:content>
+                <f:actions>
+                    <Button id="resetButton" icon="sap-icon://ti/refresh" text="{i18n>reset}" type="Transparent" press=".onReset" />
+                </f:actions>
+            </f:DynamicPageTitle>
+        </f:title>
+
+        <f:content>
+            <VBox id="content" class="huntContent sapUiResponsiveContentPadding">
+                <Text id="intro" text="{i18n>intro}" class="huntIntro sapUiSmallMarginBottom" />
+                <MessageStrip id="allFoundStrip" text="{i18n>allFound}" type="Success" showIcon="true" visible="{hunt>/allFound}" class="sapUiSmallMarginBottom" />
+                <core:HTML id="map" sanitizeContent="false" preferDOM="false" />
+            </VBox>
+        </f:content>
+    </f:DynamicPage>
+</mvc:View>

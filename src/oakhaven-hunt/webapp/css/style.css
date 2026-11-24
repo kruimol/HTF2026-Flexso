@@ -1,0 +1,222 @@
+/* The Oakhaven Hunt — Morning Round look (see the styling handoff): dark ink, copper and gold.
+   Theme and map drawings copied from src/water-app/webapp/css/style.css; keep them in step. */
+
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Special+Elite&family=Courier+Prime&display=swap");
+
+.mrTheme {
+    /* palette */
+    --mrInk: #1a120b;
+    --mrInkRaised: #22170e;
+    --mrCopper: #c0703f;
+    --mrGold: #d4a24c;
+    --mrCream: rgba(243, 230, 200, 0.85);
+    --mrCreamSolid: #f3e6c8;
+    --mrCopperLine: rgba(192, 112, 63, 0.25);
+    --mrHeadingFont: Cinzel, Georgia, serif;
+    --mrTypewriterFont: "Special Elite", "Courier Prime", "Courier New", monospace;
+
+    /* UI5 theme parameters → the platform look */
+    --sapBackgroundColor: var(--mrInk);
+    --sapShellColor: var(--mrInk);
+    --sapPageHeader_Background: var(--mrInk);
+    --sapObjectHeader_Background: var(--mrInk);
+    --sapObjectHeader_BorderColor: var(--mrCopperLine);
+    --sapGroup_ContentBackground: var(--mrInkRaised);
+    --sapGroup_TitleBackground: var(--mrInkRaised);
+    --sapGroup_TitleBorderColor: var(--mrCopperLine);
+    --sapGroup_TitleTextColor: var(--mrGold);
+    --sapGroup_ContentBorderColor: var(--mrCopperLine);
+    --sapList_Background: var(--mrInkRaised);
+    --sapList_HeaderBackground: var(--mrInkRaised);
+    --sapList_HeaderTextColor: var(--mrGold);
+    --sapList_HeaderBorderColor: var(--mrCopperLine);
+    --sapList_BorderColor: var(--mrCopperLine);
+    --sapList_TableGroupHeaderBackground: var(--mrInkRaised);
+    --sapList_Hover_Background: #2c1f13;
+    --sapList_TextColor: var(--mrCream);
+    --sapTile_Background: var(--mrInkRaised);
+    --sapTile_TitleTextColor: var(--mrCreamSolid);
+    --sapTextColor: var(--mrCream);
+    --sapTitleColor: var(--mrGold);
+    --sapContent_LabelColor: rgba(243, 230, 200, 0.6);
+    --sapContent_IconColor: var(--mrGold);
+    --sapContent_ForegroundBorderColor: var(--mrCopperLine);
+    --sapBrandColor: var(--mrCopper);
+    --sapHighlightColor: var(--mrCopper);
+    --sapSelectedColor: var(--mrCopper);
+    --sapLinkColor: var(--mrGold);
+    --sapButton_Background: rgba(243, 230, 200, 0.05);
+    --sapButton_BorderColor: rgba(243, 230, 200, 0.2);
+    --sapButton_TextColor: var(--mrCreamSolid);
+    --sapButton_IconColor: var(--mrGold);
+    --sapButton_Hover_Background: rgba(192, 112, 63, 0.15);
+    --sapButton_Lite_TextColor: var(--mrGold);
+    --sapButton_Lite_Background: transparent;
+    --sapButton_Selected_Background: rgba(192, 112, 63, 0.25);
+    --sapButton_Selected_BorderColor: var(--mrCopper);
+    --sapButton_Selected_TextColor: var(--mrCreamSolid);
+    --sapButton_Emphasized_Background: var(--mrCopper);
+    --sapButton_Emphasized_BorderColor: var(--mrCopper);
+    --sapFontHeaderFamily: var(--mrHeadingFont);
+    background: var(--mrInk);
+}
+
+/* The typewriter title with a copper glow, as on the platform */
+.mrPageTitle {
+    font-family: var(--mrTypewriterFont) !important;
+    color: var(--mrCopper) !important;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    text-shadow: 0 0 12px rgba(192, 112, 63, 0.5);
+}
+
+/* Phone: a tighter title, so it never runs under the mode switch */
+@media (max-width: 600px) {
+    .mrPageTitle {
+        letter-spacing: 2px;
+        font-size: 1.05rem !important;
+    }
+}
+
+/* Section headings: gold Cinzel capitals */
+.mrHeading {
+    font-family: var(--mrHeadingFont) !important;
+    color: var(--mrGold) !important;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+/* Standalone (index.html): give the page the full window height, so the DynamicPage scrolls
+   its content. Inside the launchpad the shell already does this. */
+html,
+body {
+    height: 100%;
+    background: #1a120b; /* = --mrInk: no grey edge around or below the app */
+}
+
+
+/* ---------- Maren's route map (model/roundMap.ts) ---------- */
+/* A soft dark veil over the painting, so the route and the droplets stand out. */
+.mrMapVeil {
+    fill: rgba(26, 18, 11, 0.3);
+}
+
+.mrPlaceLabel {
+    fill: #f3e6c8;
+    font-family: Cinzel, Georgia, serif;
+    font-size: 30px;
+    font-weight: bold;
+    text-anchor: middle;
+    paint-order: stroke;
+    stroke: rgba(10, 14, 20, 0.85);
+    stroke-width: 8;
+    stroke-linejoin: round;
+}
+
+.mrPlaceScenery {
+    font-style: italic;
+    font-weight: normal;
+    opacity: 0.75;
+}
+
+.mrPin {
+    fill: #fbf6ea;
+    stroke: rgba(10, 14, 20, 0.85);
+    stroke-width: 6;
+}
+
+.mrPinSpring {
+    fill: #5aa9f0;
+}
+
+/* Illustrations of the places (evening map) */
+.mrHouseWall { fill: #4a3a28; stroke: #2a1f12; stroke-width: 3; }
+.mrHouseDoor { fill: #f1d9a6; }
+.mrRoofTerracotta { fill: #e0927a; stroke: #6d3b2a; stroke-width: 3; }
+.mrRoofSand { fill: #e8c39a; stroke: #6d4f2a; stroke-width: 3; }
+.mrRoofLilac { fill: #b9a2d8; stroke: #4f3d6d; stroke-width: 3; }
+.mrRoofSky { fill: #7fb2e5; stroke: #2a4f6d; stroke-width: 3; }
+.mrChimney { fill: #8a8f98; stroke: #3b3f45; stroke-width: 2; }
+.mrSmoke { fill: rgba(230, 230, 230, 0.55); }
+.mrBread { fill: #d9a35b; stroke: #7a5121; stroke-width: 3; }
+.mrSignPost { stroke: #3a2b1a; stroke-width: 5; }
+.mrSign { fill: #c0703f; stroke: #5a2f14; stroke-width: 2; }
+.mrWheel { fill: none; stroke: #e8cfae; stroke-width: 6; }
+.mrWheelSpoke { stroke: #e8cfae; stroke-width: 4; }
+.mrWheelHub { fill: #e8cfae; }
+.mrPond { fill: #3f8fd6; stroke: #123a63; stroke-width: 5; }
+.mrPondRing { fill: none; stroke: #9fd0ff; stroke-width: 4; }
+.mrStone { fill: #8d939b; stroke: #3d4248; stroke-width: 2; }
+.mrSquare { fill: #6b4a2b; stroke: #3a2614; stroke-width: 4; }
+.mrStall { fill: #3d2c1b; stroke: #1e150c; stroke-width: 2; }
+.mrAwning0 { fill: #e98c8c; }
+.mrAwning1 { fill: #7fb2e5; }
+.mrAwning2 { fill: #d4a24c; }
+.mrWell { fill: #9aa3ad; stroke: #3d4248; stroke-width: 3; }
+.mrField { fill: #8a6d2c; stroke: #4a3a12; stroke-width: 3; }
+.mrFieldGreen { fill: #5d9a3c; stroke: #2e4f1c; stroke-width: 3; }
+.mrSheep { fill: #f4f1ea; stroke: #3a3a3a; stroke-width: 2; }
+.mrTree { fill: #8fd3a5; stroke: #3f7a52; stroke-width: 3; }
+.mrTreeShine { fill: rgba(255, 255, 255, 0.25); }
+
+
+/* ---------- The hunt ---------- */
+.huntContent {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.huntMap svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 0.75rem;
+    border: 1px solid var(--mrCopperLine);
+    box-shadow: 0 0 24px rgba(192, 112, 63, 0.12);
+}
+
+.huntIntro {
+    font-style: italic;
+    color: var(--mrCream);
+    border-left: 3px solid var(--mrCopper);
+    background: rgba(192, 112, 63, 0.06);
+    padding: 0.35rem 0.75rem;
+}
+
+/* Grid letters and numbers around the map, like on the platform map */
+.huntGridMark { fill: #2a1f12; stroke: rgba(243, 230, 200, 0.5); stroke-width: 2; }
+.huntGridText { fill: #f3e6c8; font-family: Cinzel, Georgia, serif; font-size: 24px; font-weight: bold; text-anchor: middle; dominant-baseline: central; }
+.huntGridLine { stroke: rgba(26, 18, 11, 0.18); stroke-width: 2; stroke-dasharray: 6 10; }
+.huntRegion { fill: rgba(243, 230, 200, 0.75); font-family: Cinzel, Georgia, serif; font-size: 34px; font-style: italic; text-anchor: middle; letter-spacing: 2px; paint-order: stroke; stroke: rgba(10, 14, 20, 0.45); stroke-width: 5; }
+.huntRiver { fill: none; stroke: #3f8fd6; stroke-width: 22; stroke-linecap: round; opacity: 0.9; }
+.huntRiverShine { fill: none; stroke: #123a63; stroke-width: 4; stroke-dasharray: 18 16; }
+.huntPipe { fill: none; stroke: #3d4654; stroke-width: 12; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 22 10; opacity: 0.85; }
+
+/* A place you can click: a soft copper glow on hover and keyboard focus */
+.huntPlace { cursor: pointer; outline: none; }
+.huntHit { fill: transparent; }
+.huntHalo { fill: rgba(212, 162, 76, 0.18); stroke: #d4a24c; stroke-width: 5; stroke-dasharray: 14 10; opacity: 0; transition: opacity 0.15s; }
+.huntPlace:hover .huntHalo,
+.huntPlace:focus-visible .huntHalo { opacity: 1; }
+.huntPlace:hover .mrPlaceLabel,
+.huntPlace:focus-visible .mrPlaceLabel { fill: #d4a24c; }
+
+/* Not visited yet: a gold star that gently bobs. Visited: a stamp. */
+.huntStar { fill: #d4a24c; stroke: #5a2f14; stroke-width: 3; animation: huntBob 1.6s ease-in-out infinite; }
+.huntStamp { fill: #5d9a3c; stroke: #f3e6c8; stroke-width: 4; }
+.huntStampTick { fill: none; stroke: #f3e6c8; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+@keyframes huntBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@media (prefers-reduced-motion: reduce) { .huntStar { animation: none; } }
+
+/* The place card */
+.huntArt svg { display: block; width: 100%; max-width: 18rem; height: auto; margin: 0 auto; }
+.huntSays {
+    font-style: italic;
+    color: var(--mrCream);
+    border-left: 3px solid var(--mrCopper);
+    background: rgba(192, 112, 63, 0.06);
+    padding: 0.35rem 0.75rem;
+}
+.huntFolk { gap: 0.75rem; }

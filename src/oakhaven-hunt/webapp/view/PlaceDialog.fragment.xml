@@ -1,0 +1,35 @@
+<core:FragmentDefinition xmlns="sap.m" xmlns:core="sap.ui.core">
+    <Dialog id="placeDialog" title="{hunt>/place/name}" contentWidth="32rem" class="mrTheme sapUiContentPadding" draggable="false" resizable="false">
+        <content>
+            <VBox id="placeContent">
+                <core:HTML id="placeArt" content="{hunt>/place/art}" sanitizeContent="false" />
+                <Text id="placeAbout" text="{hunt>/place/about}" class="sapUiSmallMarginTop sapUiSmallMarginBottom" />
+
+                <Title id="folkTitle" text="{i18n>whoIsHere}" level="H3" class="mrHeading sapUiTinyMarginBottom" visible="{hunt>/place/hasVillagers}" />
+                <VBox id="folkList" items="{ path: 'hunt>/place/villagers', templateShareable: false }" visible="{hunt>/place/hasVillagers}">
+                    <HBox id="folk" alignItems="Start" class="huntFolk sapUiSmallMarginBottom">
+                        <Avatar id="folkAvatar" initials="{hunt>initials}" displaySize="S" backgroundColor="Accent1" class="sapUiSmallMarginEnd" />
+                        <VBox id="folkText">
+                            <Title id="folkName" text="{hunt>name}" level="H4" />
+                            <Label id="folkRole" text="{hunt>role}" />
+                            <Text id="folkSays" text="{hunt>says}" class="huntSays sapUiTinyMarginTop" />
+                        </VBox>
+                    </HBox>
+                </VBox>
+                <Text id="nobody" text="{i18n>nobodyHere}" visible="{= !${hunt>/place/hasVillagers} }" class="huntSays sapUiSmallMarginBottom" />
+
+                <Title id="mysteryTitle" text="{i18n>mystery}" level="H3" class="mrHeading sapUiSmallMarginTop sapUiTinyMarginBottom" />
+                <Text id="mysteryText" text="{hunt>/place/mystery}" />
+                <ObjectStatus id="puzzleSoon" text="{i18n>puzzleSoon}" icon="sap-icon://ti/lock" state="Information" class="sapUiTinyMarginTop" />
+            </VBox>
+        </content>
+        <beginButton>
+            <Button id="stampButton" text="{= ${hunt>/place/visited} ? ${i18n>stampDone} : ${i18n>stampCollect} }"
+                icon="{= ${hunt>/place/visited} ? 'sap-icon://ti/circle-check' : 'sap-icon://ti/rosette' }"
+                type="Emphasized" enabled="{= !${hunt>/place/visited} }" press=".onCollectStamp" />
+        </beginButton>
+        <endButton>
+            <Button id="closeButton" text="{i18n>close}" press=".onCloseDialog" />
+        </endButton>
+    </Dialog>
+</core:FragmentDefinition>
