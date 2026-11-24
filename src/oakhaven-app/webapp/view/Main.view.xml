@@ -39,6 +39,19 @@
         </f:header>
 
         <f:content>
+            <VBox id="contentBox">
+            <!-- Ilse's Ledger: records she marked "niet te vertrouwen" — nobody should act on them -->
+            <MessageStrip
+                id="untrustedStrip"
+                type="Warning"
+                showIcon="true"
+                visible="{= ${view>/untrusted}.length > 0 }"
+                text="{view>/untrustedText}"
+                class="sapUiSmallMarginBeginEnd sapUiSmallMarginTop">
+                <link>
+                    <Link id="untrustedLink" text="{i18n>untrustedLink}" href="#IlseLedger-display" />
+                </link>
+            </MessageStrip>
             <IconTabBar id="tabs" expandable="false" headerBackgroundDesign="Transparent" class="sapUiResponsiveContentPadding">
                 <items>
                     <!-- ============================ Water pipes ============================ -->
@@ -200,6 +213,7 @@
                     </IconTabFilter>
                 </items>
             </IconTabBar>
+            </VBox>
         </f:content>
     </f:DynamicPage>
 </mvc:View>

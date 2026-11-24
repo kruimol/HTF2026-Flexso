@@ -15,6 +15,11 @@ const RULE_ICONS: Readonly<Record<string, string>> = {
   futureDate: "sap-icon://ti/calendar-time",
   beforeRegister: "sap-icon://ti/history",
   unknownEditor: "sap-icon://ti/user-question",
+  systemAccount: "sap-icon://ti/robot",
+  noName: "sap-icon://ti/user-off",
+  nightChange: "sap-icon://ti/moon",
+  hiddenText: "sap-icon://ti/eye",
+  otherRegister: "sap-icon://ti/arrows-exchange",
   unknownPerson: "sap-icon://ti/user-question",
   enteredByOther: "sap-icon://ti/users",
   outsideApps: "sap-icon://ti/door-exit",
@@ -24,8 +29,9 @@ export function ruleIcon(rule: string): string {
   return RULE_ICONS[rule] ?? "sap-icon://ti/alert-triangle";
 }
 
-// Dutch, like the sentences the server writes, also inside an English launchpad.
-const DATE_TIME = DateFormat.getDateTimeInstance({ style: "medium" }, new Locale("nl-BE"));
+// Dutch, like the sentences the server writes, also inside an English launchpad. Village time is
+// the clock the registers write in (UTC), the same clock as the sentences (see ledger-checks.ts).
+const DATE_TIME = DateFormat.getDateTimeInstance({ style: "medium", UTC: true }, new Locale("nl-BE"));
 
 /** "17 nov 2026, 03:13:00" from an ISO timestamp; empty when unknown. */
 export function dateTime(iso: string | null | undefined): string {

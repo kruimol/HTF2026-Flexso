@@ -21,7 +21,8 @@ import {
   type SensorRow,
   type StockRow,
 } from './lib/ledger-checks';
-import { appendEntries, startLedgerSync, syncLedger, verifyLedger } from './lib/ledger-seal';
+import { appendEntries, FOLLOWED, startLedgerSync, syncLedger, verifyLedger } from './lib/ledger-seal';
+import { REGISTER_NAMES } from './lib/ledger-checks';
 
 const NS = 'oakhaven.curse';
 const TRUST_MARKS = `${NS}.TrustMarks`;
@@ -123,6 +124,73 @@ async function loadFindings(): Promise<Array<Finding & { untrusted: boolean; mar
     .sort((a, b) => rankOf(a) - rankOf(b) || a.register.localeCompare(b.register) || a.recordLabel.localeCompare(b.recordLabel));
 }
 
+/** 142 instead of 142.00. */
+function n(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '?';
+  const number = Number(value);
+  return Number.isFinite(number) ? String(Math.round(number * 100) / 100).replace('.', ',') : String(value);
+}
+
+function d(value: unknown): string {
+  if (!value) return '?';
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? String(value)
+    : new Intl.DateTimeFormat('nl-BE', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }).format(date);
+}
+
+/** The current values of a record in a few words, per register. */
+function summaryOf(entityName: string, row: Record<string, unknown>, pipeNames: ReadonlyMap<string, string>): string {
+  const pipe = pipeNames.get(String(row.pipe_ID ?? '')) ?? '?';
+  switch (entityName) {
+    case 'WaterPipes':
+      return `doorstroming ${n(row.currentFlowRate)} van max. ${n(row.nominalFlowRate)} L/min · druk ${n(row.currentPressure)} PSI · onderhoud ${d(row.lastMaintenance)}`;
+    case 'Sensors':
+      return `op ${pipe} · meet ${n(row.flowRate)} L/min · ${n(row.pressure)} PSI`;
+    case 'Repairs':
+      return `aan ${pipe} · op ${d(row.repairDate)} · door ${row.repairedBy ?? '?'}`;
+    case 'StockItems':
+      return `voorraad ${n(row.currentQuantity)} ${row.unit ?? ''} · minimum ${n(row.minStockLevel)} · per dag ${n(row.consumptionRate)}`;
+    case 'Landmarks':
+      return `${row.kind ?? '?'} · vak ${row.gridCell ?? '?'}${row.suppliedBy ? ` · water van ${row.suppliedBy}` : ''}`;
+    default:
+      return '';
+  }
+}
+
+/** Every followed record with its current values and how many ledger pages are about it. */
+async function loadRecords(): Promise<object[]> {
+  await syncLedger();
+  const pages = (await SELECT.from(LEDGER).columns('entityName', 'recordID')) as Array<{ entityName: string; recordID: string | null }>;
+  const count = new Map<string, number>();
+  for (const page of pages) {
+    if (!page.recordID) continue;
+    const key = `${page.entityName}|${page.recordID}`;
+    count.set(key, (count.get(key) ?? 0) + 1);
+  }
+  const pipes = (await SELECT.from(`${NS}.WaterPipes`).columns('ID', 'pipeID')) as Array<{ ID: string; pipeID: string }>;
+  const pipeNames = new Map(pipes.map((pipe) => [pipe.ID, pipe.pipeID]));
+  const result: object[] = [];
+  for (const register of FOLLOWED) {
+    const rows = (await SELECT.from(`${NS}.${register.entityName}`).columns(
+      'ID', 'createdAt', 'createdBy', 'modifiedAt', 'modifiedBy', ...register.fields)) as Array<Record<string, unknown> & { ID: string }>;
+    for (const row of rows) {
+      result.push({
+        entityName: register.entityName,
+        register: REGISTER_NAMES[register.entityName] ?? register.entityName,
+        recordID: row.ID,
+        recordLabel: String(row[register.labelField] ?? row.ID),
+        summary: summaryOf(register.entityName, row, pipeNames),
+        changedBy: row.modifiedBy ?? '?',
+        changedAt: row.modifiedAt ?? null,
+        createdBy: row.createdBy ?? '?',
+        createdAt: row.createdAt ?? null,
+        pages: count.get(`${register.entityName}|${row.ID}`) ?? 0,
+      });
+    }
+  }
+  return result;
+}
+
 export default class LedgerService extends cds.ApplicationService {
   override async init(): Promise<void> {
     this.on('findings', () => loadFindings());
@@ -130,6 +198,8 @@ export default class LedgerService extends cds.ApplicationService {
     this.on('events', async () => groupEvents(await loadFindings()));
 
     this.on('verifyLedger', () => verifyLedger());
+
+    this.on('records', () => loadRecords());
 
     this.on('markUntrusted', async (req) => {
       const { entityName, recordID, recordLabel, reason } = req.data as MarkData;

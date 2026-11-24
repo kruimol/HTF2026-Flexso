@@ -80,6 +80,11 @@ export type Rule =
   | 'futureDate'
   | 'beforeRegister'
   | 'unknownEditor'
+  | 'systemAccount'
+  | 'noName'
+  | 'nightChange'
+  | 'hiddenText'
+  | 'otherRegister'
   | 'unknownPerson'
   | 'enteredByOther'
   | 'outsideApps';
@@ -115,11 +120,54 @@ export const REGISTER_NAMES: Readonly<Record<string, string>> = {
   Landmarks: 'Plaatsen',
 };
 
+/** Users that wrote to the registers and are people (or bodies) of the village, taken from the data. */
+const KNOWN_EDITORS = new Set(['council', 'maren.holt', 'tobin.reyes', 'rowan.ashby', 'ilse.vermeer']);
+
 /**
- * Users that wrote to the registers and are people (or bodies) of the village, taken from the data.
- * `anonymous` is what CAP records for a change made through one of the village apps (no login).
+ * Accounts that are not a person: nobody vouches for what they write. Ilse: "een wijziging door een
+ * systeemaccount […] baart mij zorgen".
  */
-const KNOWN_EDITORS = new Set(['council', 'maren.holt', 'tobin.reyes', 'rowan.ashby', 'ilse.vermeer', 'anonymous']);
+const SYSTEM_ACCOUNTS = new Set(['system', 'admin', 'root', 'service', 'sys', 'cron', 'batch']);
+
+/**
+ * "No name": what CAP records for a change made without logging in (every village app today), or no
+ * user at all. The change may be honest, but nobody can say who made it.
+ */
+const NO_NAME = new Set(['anonymous', 'unknown', '']);
+
+/**
+ * Ilse: "tussen middernacht en vier uur 's nachts, want dan werkt hier niemand". From 00:00 up to,
+ * not including, 04:00 village time: at 04:00 Tobin, the baker, is the first in the village to get up.
+ */
+const NIGHT_FROM_HOUR = 0;
+const NIGHT_UNTIL_HOUR = 4;
+
+/**
+ * Who looks after which register: Maren the water (pipes, sensors, repairs), Tobin "alles over
+ * voedsel en voorraden", the council the places.
+ */
+const REGISTER_OWNERS: Readonly<Record<string, { user: string; name: string; ask: string }>> = {
+  WaterPipes: { user: 'maren.holt', name: 'Maren Holt, de waterwachter', ask: 'Maren' },
+  Sensors: { user: 'maren.holt', name: 'Maren Holt, de waterwachter', ask: 'Maren' },
+  Repairs: { user: 'maren.holt', name: 'Maren Holt, de waterwachter', ask: 'Maren' },
+  StockItems: { user: 'tobin.reyes', name: 'Tobin Reyes, de bakker', ask: 'Tobin' },
+  Landmarks: { user: 'council', name: 'de dorpsraad', ask: 'de raad' },
+};
+
+/** Villagers whose writing in someone else's register is pointed out (the council registers for others). */
+const VILLAGER_ROLES: Readonly<Record<string, string>> = {
+  'maren.holt': 'Maren Holt (waterwachter)',
+  'tobin.reyes': 'Tobin Reyes (bakker)',
+  'ilse.vermeer': 'Ilse Vermeer (bibliothecaresse)',
+};
+
+/**
+ * Rules that are not suspicion but a question for the owner of the register ("na te vragen").
+ * Ilse: "Of Tobin aan de watersensoren mag komen, weet ik niet; dat moet je aan Maren Holt vragen."
+ * So writing in someone else's register is pointed out, never counted as suspicious, and never
+ * makes a moment.
+ */
+export const ASK_RULES: ReadonlySet<Rule> = new Set<Rule>(['otherRegister']);
 
 /** The villagers by name, as they appear in `Repairs.repairedBy`, with their user name. */
 const VILLAGERS: Readonly<Record<string, string>> = {
@@ -138,8 +186,13 @@ const SAME_STORY_TOLERANCE = 0.5;
 /** A date counts as "in the future" only beyond this margin (clocks differ a little). */
 const FUTURE_MARGIN_MS = 5 * 60_000;
 
-/** Oakhaven lies in Belgium: dates in the sentences are village time, like in the app. */
-const VILLAGE_TIME_ZONE = 'Europe/Brussels';
+/**
+ * Village time = the time as the registers write it down (UTC). The registers record work at 09:00,
+ * 12:30 … in that clock; converting to Belgian time would shift every moment an hour and push a
+ * change at 03:13 out of Ilse's night window. The app shows the same clock.
+ */
+const VILLAGE_TIME_ZONE = 'UTC';
+const HOUR_FORMAT = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hourCycle: 'h23', timeZone: VILLAGE_TIME_ZONE });
 
 const DATE_FORMAT = new Intl.DateTimeFormat('nl-BE', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: VILLAGE_TIME_ZONE });
 const DATE_TIME_FORMAT = new Intl.DateTimeFormat('nl-BE', {
@@ -163,6 +216,32 @@ function day(iso: string): string {
 
 export function dateTime(iso: string): string {
   return DATE_TIME_FORMAT.format(new Date(iso));
+}
+
+/**
+ * Letters that are not language: a Base64 word (a common way to write any text with letters and
+ * digits only) that decodes to readable text. Ilse: "Ze eindigt met vreemde letters die ik niet kan
+ * lezen." Only words of 12+ characters that decode to mostly printable text count, so ordinary
+ * words and IDs are left alone.
+ */
+export function hiddenTexts(value: string | null): Array<{ encoded: string; decoded: string }> {
+  if (!value) return [];
+  const found: Array<{ encoded: string; decoded: string }> = [];
+  for (const [encoded] of value.matchAll(/[A-Za-z0-9+/]{12,}={0,2}/g)) {
+    if (encoded.length % 4 !== 0 || !/[0-9+/=]/.test(encoded) || !/[a-z]/.test(encoded) || !/[A-Z]/.test(encoded)) continue;
+    const decoded = Buffer.from(encoded, 'base64').toString('utf8');
+    const printable = [...decoded].filter((char) => char >= ' ' && char <= '~').length;
+    if (decoded.length >= 4 && printable === decoded.length && /[A-Za-z]{3}/.test(decoded)) found.push({ encoded, decoded });
+  }
+  return found;
+}
+
+/** True between 00:00 and 04:00 village time. */
+export function isNight(iso: string | null): boolean {
+  const t = time(iso);
+  if (t === null) return false;
+  const hour = Number(HOUR_FORMAT.format(new Date(t)));
+  return hour >= NIGHT_FROM_HOUR && hour < NIGHT_UNTIL_HOUR;
 }
 
 function time(iso: string | null): number | null {
@@ -213,16 +292,35 @@ export function runChecks(registers: Registers, now: Date): Finding[] {
     }
   };
 
-  /** Every row: who last wrote it. */
+  /** Every row: who wrote it, and when. One finding per kind per row is enough. */
   const checkEditor = (entityName: string, row: ManagedRow, label: string): void => {
-    for (const [user, when, verb] of [
+    const writes = [
       [row.createdBy, row.createdAt, 'Aangemaakt'],
       [row.modifiedBy, row.modifiedAt, 'Laatst gewijzigd'],
-    ] as const) {
-      if (user && !KNOWN_EDITORS.has(user)) {
-        const at = when ? ` op ${dateTime(when)}` : '';
-        add(entityName, row, label, 'unknownEditor', `${verb} door '${user}'${at}. Dat is geen persoon of instantie uit het dorp.`);
-        return; // one finding per row is enough: created and modified by the same unknown user say the same
+    ] as const;
+    const seen = new Set<Rule>();
+    const once = (rule: Rule, explanation: string): void => {
+      if (seen.has(rule)) return;
+      seen.add(rule);
+      add(entityName, row, label, rule, explanation);
+    };
+    for (const [rawUser, when, verb] of writes) {
+      const user = (rawUser ?? '').trim();
+      const at = when ? ` op ${dateTime(when)}` : '';
+      if (SYSTEM_ACCOUNTS.has(user.toLowerCase())) {
+        once('systemAccount', `${verb} door het systeemaccount '${user}'${at}. Een systeemaccount is geen persoon: niemand staat in voor deze wijziging.`);
+      } else if (NO_NAME.has(user.toLowerCase())) {
+        once('noName', `${verb} zonder naam${at} (${user ? `'${user}'` : 'geen gebruiker'}): niet na te gaan wie dit deed.`);
+      } else if (!KNOWN_EDITORS.has(user)) {
+        once('unknownEditor', `${verb} door '${user}'${at}. Dat is geen persoon of instantie uit het dorp.`);
+      }
+      const owner = REGISTER_OWNERS[entityName];
+      const role = VILLAGER_ROLES[user];
+      if (owner && role && owner.user !== user) {
+        once('otherRegister', `${verb} door ${role}${at}. Het register ${REGISTER_NAMES[entityName] ?? entityName} hoort bij ${owner.name}. Of dat mocht, weet alleen ${owner.ask}: vraag het na. Op zich is dit geen bewijs.`);
+      }
+      if (isNight(when)) {
+        once('nightChange', `${verb} op ${dateTime(when as string)}, tussen middernacht en vier uur 's nachts. Dan werkt er niemand in Oakhaven.`);
       }
     }
   };
@@ -274,6 +372,10 @@ export function runChecks(registers: Registers, now: Date): Finding[] {
     const pipe = repair.pipe_ID ? pipesById.get(repair.pipe_ID) : undefined;
     const label = `${pipe?.pipeID ?? '?'}: ${repair.issue ?? ''}`.trim();
     checkDate('Repairs', repair, label, 'De reparatie', repair.repairDate);
+    for (const { encoded, decoded } of hiddenTexts(repair.issue)) {
+      add('Repairs', repair, label, 'hiddenText',
+        `De nota bevat de tekens '${encoded}'. Dat is geen taal maar Base64, een gewone manier om tekst met letters en cijfers te schrijven. Ontcijferd staat er: '${decoded}'.`);
+    }
     const name = repair.repairedBy?.trim();
     if (name) {
       const user = VILLAGERS[name];
@@ -324,7 +426,7 @@ export function runChecks(registers: Registers, now: Date): Finding[] {
 export function groupEvents(findings: readonly Finding[]): LedgerEvent[] {
   const groups = new Map<string, { at: string; changedBy: string; records: Map<string, string>; findings: number }>();
   for (const finding of findings) {
-    if (!finding.changedAt) continue;
+    if (!finding.changedAt || ASK_RULES.has(finding.rule)) continue; // a question is not a suspicious moment
     const minute = new Date(finding.changedAt).toISOString().slice(0, 16);
     const key = `${finding.changedBy}|${minute}`;
     const group = groups.get(key) ?? { at: `${minute}:00Z`, changedBy: finding.changedBy, records: new Map(), findings: 0 };

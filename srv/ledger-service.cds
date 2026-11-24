@@ -12,7 +12,9 @@ service LedgerService @(path: 'ledger', impl: 'srv/ledger-service') {
   @readonly
   entity TrustMarks    as projection on db.TrustMarks;
 
+  /** Ilse browses the whole ledger at once (see the book in the app): no 1000-row cap. */
   @readonly
+  @cds.query.limit: { default: 1000, max: 100000 }
   entity LedgerEntries as projection on db.LedgerEntries;
 
   /** One suspicious record, with the rule it breaks in plain words. */
@@ -22,7 +24,8 @@ service LedgerService @(path: 'ledger', impl: 'srv/ledger-service') {
     recordID    : UUID;
     recordLabel : String;
     rule        : String;   // sourcesDisagree | overCapacity | impossibleValue | futureDate | beforeRegister
-                            // | unknownEditor | unknownPerson | enteredByOther | outsideApps
+                            // | unknownEditor | systemAccount | noName | nightChange | hiddenText | otherRegister
+                            // | unknownPerson | enteredByOther | outsideApps
     explanation : String;   // one sentence Ilse can explain to the council
     changedBy   : String;   // modifiedBy of the record: a fact, not an accusation
     changedAt   : Timestamp;
@@ -49,6 +52,23 @@ service LedgerService @(path: 'ledger', impl: 'srv/ledger-service') {
     brokenAtSeq : Integer;
     message     : String;
   }
+
+  /** One record the ledger follows: what it says now and how much changed since the seal. */
+  type RecordInfo {
+    entityName : String;
+    register   : String;
+    recordID   : UUID;
+    recordLabel: String;
+    summary    : String;   // the current values in words, e.g. "doorstroming 142 van max. 150 L/min · druk 58 PSI"
+    changedBy  : String;
+    changedAt  : Timestamp;
+    createdBy  : String;
+    createdAt  : Timestamp;
+    pages      : Integer;  // pages about this record in the ledger since the seal
+  }
+
+  /** Every record the ledger follows (the sealed records). */
+  function records() returns many RecordInfo;
 
   /** Every suspicious record, worst moment first. */
   function findings() returns many Finding;

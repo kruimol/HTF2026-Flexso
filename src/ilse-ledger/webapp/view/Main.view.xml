@@ -6,14 +6,15 @@
     xmlns:core="sap.ui.core"
     core:require="{ formatter: 'ilse/ledger/model/formatter' }"
     displayBlock="true"
-    height="100%">
-    <f:DynamicPage id="page" toggleHeaderOnTitleClick="false">
+    height="100%"
+    class="mrTheme">
+    <f:DynamicPage id="page" toggleHeaderOnTitleClick="false" backgroundDesign="Transparent">
         <f:title>
             <f:DynamicPageTitle id="pageTitle">
                 <f:heading>
                     <HBox id="pageHeading" alignItems="Center">
                         <core:Icon id="pageLogo" src="sap-icon://ti/book" size="1.75rem" class="ilseLogo sapUiSmallMarginEnd" />
-                        <Title id="pageTitleText" text="{i18n>appTitle}" level="H1" wrapping="false" />
+                        <Title id="pageTitleText" text="{i18n>appTitle}" level="H1" wrapping="false" class="mrPageTitle" />
                     </HBox>
                 </f:heading>
                 <f:expandedContent>
@@ -25,6 +26,7 @@
                 <f:content>
                     <HBox id="summaryBox" alignItems="Center" wrap="Wrap">
                         <ObjectStatus id="summarySuspect" text="{ledger>/summary/suspect}" icon="sap-icon://ti/alert-triangle" state="Warning" class="sapUiMediumMarginEnd" />
+                        <ObjectStatus id="summaryAsk" text="{ledger>/summary/ask}" icon="sap-icon://ti/arrows-exchange" state="Information" class="sapUiMediumMarginEnd" />
                         <ObjectStatus id="summaryMarked" text="{ledger>/summary/marked}" icon="sap-icon://ti/flag-3" state="Error" class="sapUiMediumMarginEnd" />
                         <ObjectStatus id="summarySeal" text="{ledger>/seal/title}" icon="{ledger>/seal/icon}" state="{ledger>/seal/state}" />
                     </HBox>
@@ -36,8 +38,79 @@
         </f:title>
 
         <f:content>
-            <IconTabBar id="tabs" expandable="false" busy="{ledger>/busy}" class="sapUiResponsiveContentPadding">
+            <VBox id="contentBox">
+            <!-- What changed since Ilse last looked: she should not have to search afterwards -->
+            <MessageStrip
+                id="sinceStrip"
+                text="{ledger>/since/text}"
+                type="{ledger>/since/type}"
+                showIcon="true"
+                visible="{= !!${ledger>/since/text} }"
+                class="ilseNoPrint sapUiResponsiveMargin">
+                <link>
+                    <Link id="sinceSeenLink" text="{i18n>sinceSeen}" press=".onSeen" visible="{ledger>/since/hasNews}" />
+                </link>
+            </MessageStrip>
+            <IconTabBar id="tabs" selectedKey="{ledger>/tab}" expandable="false" busy="{ledger>/busy}" headerBackgroundDesign="Transparent" backgroundDesign="Transparent" class="sapUiResponsiveContentPadding">
                 <items>
+                    <!-- ====================== Timeline: when did it begin, all at once or bit by bit? ====================== -->
+                    <IconTabFilter id="tabTimeline" icon="sap-icon://ti/timeline-event" text="{i18n>tabTimeline}" key="timeline">
+                        <Text id="timelineIntro" text="{i18n>timelineIntro}" class="ilseIntro sapUiSmallMarginBottom" />
+                        <!-- Ilse's filters: the kinds of suspicion apart, and when (especially mid-November) -->
+                        <VBox id="timelineFilters" class="ilseNoPrint sapUiSmallMarginBottom">
+                            <Label id="tlKindLabel" text="{i18n>tlKind}" labelFor="tlKind" />
+                            <SegmentedButton id="tlKind" selectedKey="{ledger>/timeline/category}" selectionChange=".onTimelineFilter" class="sapUiTinyMarginBottom">
+                                <items>
+                                    <SegmentedButtonItem id="tlKindAll" key="all" text="{i18n>tlKindAll} ({ledger>/timeline/counts/all})" />
+                                    <SegmentedButtonItem id="tlKindSuspect" key="suspect" icon="sap-icon://ti/alert-triangle" text="{i18n>tlKindSuspect} ({ledger>/timeline/counts/suspect})" />
+                                    <SegmentedButtonItem id="tlKindNight" key="night" icon="sap-icon://ti/moon" text="{i18n>tlKindNight} ({ledger>/timeline/counts/night})" />
+                                    <SegmentedButtonItem id="tlKindNoPerson" key="noPerson" icon="sap-icon://ti/robot" text="{i18n>tlKindNoPerson} ({ledger>/timeline/counts/noPerson})" />
+                                    <SegmentedButtonItem id="tlKindImpossible" key="impossible" icon="sap-icon://ti/math-off" text="{i18n>tlKindImpossible} ({ledger>/timeline/counts/impossible})" />
+                                </items>
+                            </SegmentedButton>
+                            <Label id="tlPeriodLabel" text="{i18n>tlPeriod}" labelFor="tlPeriod" />
+                            <HBox id="tlPeriodBox" alignItems="Center" wrap="Wrap">
+                                <SegmentedButton id="tlPeriod" selectedKey="{ledger>/timeline/period}" selectionChange=".onTimelineFilter" class="sapUiSmallMarginEnd">
+                                    <items>
+                                        <SegmentedButtonItem id="tlPeriodAll" key="all" text="{i18n>tlPeriodAll}" />
+                                        <SegmentedButtonItem id="tlPeriodRecent" key="recent" text="{i18n>tlPeriodRecent}" />
+                                        <SegmentedButtonItem id="tlPeriodMid" key="midNovember" text="{i18n>tlPeriodMid}" />
+                                        <SegmentedButtonItem id="tlPeriodCustom" key="custom" icon="sap-icon://ti/calendar" text="{i18n>tlPeriodCustom}" />
+                                    </items>
+                                </SegmentedButton>
+                                <DateRangeSelection id="tlRange" width="16rem" displayFormat="dd/MM/yyyy"
+                                    dateValue="{ledger>/timeline/fromDate}" secondDateValue="{ledger>/timeline/toDate}"
+                                    visible="{= ${ledger>/timeline/period} === 'custom' }" change=".onTimelineFilter" />
+                            </HBox>
+                            <Text id="tlPeriodText" text="{ledger>/timeline/periodText}" visible="{= !!${ledger>/timeline/periodText} }" class="ilseQuote sapUiTinyMarginTop" />
+                        </VBox>
+                        <VBox id="timelineAnswers" class="ilseAnswers sapUiSmallMarginBottom">
+                            <Title id="tlBeganTitle" text="{i18n>tlBeganQ}" level="H3" class="mrHeading" />
+                            <Text id="tlBeganText" text="{ledger>/timeline/began}" class="sapUiTinyMarginBottom" />
+                            <Title id="tlPaceTitle" text="{i18n>tlPaceQ}" level="H3" class="mrHeading sapUiSmallMarginTop" />
+                            <Text id="tlPaceText" text="{ledger>/timeline/pace}" />
+                            <Text id="tlBiggestText" text="{ledger>/timeline/biggest}" visible="{= !!${ledger>/timeline/biggest} }" class="sapUiTinyMarginTop" />
+                        </VBox>
+                        <Title id="tlWholeTitle" text="{= ${ledger>/timeline/periodText} ? ${i18n>tlChosen} : ${i18n>tlWhole} }" level="H4" class="mrHeading" />
+                        <core:HTML id="timelineChart" content="{ledger>/timeline/svg}" sanitizeContent="false" />
+                        <Title id="tlRecentTitle" text="{i18n>tlRecent}" level="H4" class="mrHeading" visible="{= !!${ledger>/timeline/svgRecent} }" />
+                        <core:HTML id="timelineRecent" content="{ledger>/timeline/svgRecent}" sanitizeContent="false" />
+                        <List id="timelineList" backgroundDesign="Transparent" noDataText="{i18n>noTimeline}" showSeparators="Inner"
+                            items="{ path: 'ledger>/timeline/view', sorter: { path: 'month', group: true }, templateShareable: false }">
+                            <CustomListItem id="timelineItem" highlight="{= ${ledger>level} === 'alarm' ? 'Error' : (${ledger>level} === 'suspect' ? 'Warning' : 'None') }">
+                                <VBox id="timelineBox" class="sapUiSmallMarginBeginEnd sapUiTinyMarginTopBottom">
+                                    <HBox id="timelineHead" alignItems="Center" wrap="Wrap">
+                                        <Text id="timelineTime" text="{ledger>time}" class="ilseTime sapUiSmallMarginEnd" />
+                                        <Link id="timelineRecord" text="{ledger>recordLabel}" press=".onTimelineRecord" tooltip="{i18n>bookHistory}" class="sapUiTinyMarginEnd" />
+                                        <Text id="timelineRegister" text="· {ledger>register}" />
+                                    </HBox>
+                                    <Text id="timelineWhat" text="{ledger>what} · {ledger>byText}" />
+                                    <Text id="timelineReasons" text="{ledger>reasons}" visible="{= !!${ledger>reasons} }" class="ilseQuote" />
+                                </VBox>
+                            </CustomListItem>
+                        </List>
+                    </IconTabFilter>
+
                     <!-- ====================== Suspicious records ====================== -->
                     <IconTabFilter id="tabFindings" icon="sap-icon://ti/alert-triangle" text="{i18n>tabFindings}" count="{= ${ledger>/records}.length }" key="findings">
                         <Text id="findingsIntro" text="{i18n>findingsIntro}" class="ilseIntro sapUiSmallMarginBottom" />
@@ -51,10 +124,10 @@
                             <items>
                                 <ColumnListItem id="findingItem" vAlign="Top" highlight="{= ${ledger>untrusted} ? 'Error' : 'Warning' }">
                                     <cells>
-                                        <ObjectIdentifier id="findingRecord" title="{ledger>recordLabel}" text="{ledger>register}" />
+                                        <ObjectIdentifier id="findingRecord" title="{ledger>recordLabel}" text="{ledger>register}" titleActive="true" titlePress=".onShowHistory" tooltip="{i18n>bookHistory}" />
                                         <VBox id="findingReasons" items="{ path: 'ledger>reasons', templateShareable: false }">
                                             <VBox id="findingReason" class="sapUiTinyMarginBottom">
-                                                <ObjectStatus id="findingRule" text="{ledger>ruleText}" icon="{ledger>icon}" state="Warning" />
+                                                <ObjectStatus id="findingRule" text="{ledger>ruleText}" icon="{ledger>icon}" state="{ledger>state}" />
                                                 <Text id="findingExplanation" text="{ledger>explanation}" class="ilseReason" />
                                             </VBox>
                                         </VBox>
@@ -76,10 +149,31 @@
                         </Table>
                     </IconTabFilter>
 
+                    <!-- ====================== Questions for the owner of a register ====================== -->
+                    <IconTabFilter id="tabAsk" icon="sap-icon://ti/arrows-exchange" text="{i18n>tabAsk}" count="{= ${ledger>/askRecords}.length }" key="ask">
+                        <Text id="askIntro" text="{i18n>askIntro}" class="ilseIntro sapUiSmallMarginBottom" />
+                        <Table id="askTable" items="{ path: 'ledger>/askRecords', templateShareable: false }" noDataText="{i18n>noAsk}" popinLayout="GridSmall">
+                            <columns>
+                                <Column id="askColRecord" width="14rem"><Text id="askColRecordHdr" text="{i18n>colRecord}" /></Column>
+                                <Column id="askColWhat"><Text id="askColWhatHdr" text="{i18n>colAsk}" /></Column>
+                            </columns>
+                            <items>
+                                <ColumnListItem id="askItem" vAlign="Top" highlight="Information">
+                                    <cells>
+                                        <ObjectIdentifier id="askRecord" title="{ledger>recordLabel}" text="{ledger>register}" />
+                                        <VBox id="askReasons" items="{ path: 'ledger>reasons', templateShareable: false }">
+                                            <Text id="askExplanation" text="{ledger>explanation}" class="ilseReason sapUiTinyMarginBottom" />
+                                        </VBox>
+                                    </cells>
+                                </ColumnListItem>
+                            </items>
+                        </Table>
+                    </IconTabFilter>
+
                     <!-- ====================== Moments ====================== -->
                     <IconTabFilter id="tabMoments" icon="sap-icon://ti/clock-hour-3" text="{i18n>tabMoments}" count="{= ${ledger>/moments}.length }" key="moments">
                         <Text id="momentsIntro" text="{i18n>momentsIntro}" class="ilseIntro sapUiSmallMarginBottom" />
-                        <List id="momentsList" items="{ path: 'ledger>/moments', templateShareable: false }" noDataText="{i18n>noMoments}" showSeparators="Inner">
+                        <List id="momentsList" backgroundDesign="Transparent" items="{ path: 'ledger>/moments', templateShareable: false }" noDataText="{i18n>noMoments}" showSeparators="Inner">
                             <CustomListItem id="momentItem" highlight="{= ${ledger>many} ? 'Error' : 'Warning' }">
                                 <VBox id="momentBox" class="sapUiSmallMargin">
                                     <ObjectStatus id="momentCount" text="{ledger>countText}" icon="sap-icon://ti/clock-hour-3" state="{= ${ledger>many} ? 'Error' : 'Warning' }" />
@@ -90,13 +184,71 @@
                         </List>
                     </IconTabFilter>
 
+                    <!-- ====================== All sealed records ====================== -->
+                    <IconTabFilter id="tabAll" icon="sap-icon://ti/list-details" text="{i18n>tabAll}" count="{= ${ledger>/allRecords}.length }" key="all">
+                        <Text id="allIntro" text="{i18n>allIntro}" class="ilseIntro sapUiSmallMarginBottom" />
+                        <OverflowToolbar id="allFilters" design="Transparent" class="ilseNoPrint">
+                            <Select id="allRegister" selectedKey="{ledger>/allRegister}" change=".onAllFilter" items="{ path: 'ledger>/book/registers', templateShareable: false }">
+                                <core:Item id="allRegisterItem" key="{ledger>key}" text="{ledger>text}" />
+                            </Select>
+                            <SearchField id="allSearch" value="{ledger>/allSearch}" placeholder="{i18n>bookSearch}" liveChange=".onAllFilter" search=".onAllFilter" width="16rem" />
+                        </OverflowToolbar>
+                        <Table id="allTable" items="{ path: 'ledger>/allView', templateShareable: false }" noDataText="{i18n>bookEmpty}" popinLayout="GridSmall">
+                            <columns>
+                                <Column id="allColRecord" width="14rem"><Text id="allColRecordHdr" text="{i18n>colRecord}" /></Column>
+                                <Column id="allColNow"><Text id="allColNowHdr" text="{i18n>colNow}" /></Column>
+                                <Column id="allColChange" width="13rem" minScreenWidth="Tablet" demandPopin="true"><Text id="allColChangeHdr" text="{i18n>colLastChange}" /></Column>
+                                <Column id="allColHistory" width="13rem" minScreenWidth="Tablet" demandPopin="true"><Text id="allColHistoryHdr" text="{i18n>colHistory}" /></Column>
+                                <Column id="allColTrust" width="16rem" minScreenWidth="Tablet" demandPopin="true"><Text id="allColTrustHdr" text="{i18n>colTrust}" /></Column>
+                            </columns>
+                            <items>
+                                <ColumnListItem id="allItem" vAlign="Top" highlight="{ledger>state}">
+                                    <cells>
+                                        <ObjectIdentifier id="allRecord" title="{ledger>recordLabel}" text="{ledger>register}" titleActive="true" titlePress=".onAllHistory" tooltip="{i18n>bookHistory}" />
+                                        <Text id="allSummary" text="{ledger>summary}" />
+                                        <Text id="allChanged" text="{ledger>changedText}" />
+                                        <ObjectStatus id="allHistory" text="{ledger>historyText}" icon="{= ${ledger>pages} > 0 ? 'sap-icon://ti/book' : 'sap-icon://ti/lock' }" state="{= ${ledger>pages} > 0 ? 'Information' : 'None' }" />
+                                        <VBox id="allTrust">
+                                            <ObjectStatus id="allState" text="{ledger>stateText}" icon="{ledger>stateIcon}" state="{ledger>state}" />
+                                            <Button id="allMarkButton" text="{i18n>markButton}" icon="sap-icon://ti/flag-3" type="Emphasized"
+                                                visible="{= !${ledger>untrusted} }" press=".onMark" class="sapUiTinyMarginTop" />
+                                        </VBox>
+                                    </cells>
+                                </ColumnListItem>
+                            </items>
+                        </Table>
+                    </IconTabFilter>
+
                     <!-- ====================== Sealed ledger ====================== -->
                     <IconTabFilter id="tabLedger" icon="sap-icon://ti/book" text="{i18n>tabLedger}" key="ledger">
                         <Text id="ledgerIntro" text="{i18n>ledgerIntro}" class="ilseIntro sapUiSmallMarginBottom" />
                         <MessageStrip id="sealStrip" text="{ledger>/seal/message}" type="{ledger>/seal/strip}" showIcon="true" class="sapUiSmallMarginBottom" />
+                        <!-- Browse the ledger like a book: filters, then 20 pages at a time -->
+                        <OverflowToolbar id="bookFilters" design="Transparent" class="ilseNoPrint">
+                            <Select id="bookRegister" selectedKey="{ledger>/book/register}" change=".onBookFilter" items="{ path: 'ledger>/book/registers', templateShareable: false }">
+                                <core:Item id="bookRegisterItem" key="{ledger>key}" text="{ledger>text}" />
+                            </Select>
+                            <SearchField id="bookSearch" value="{ledger>/book/search}" placeholder="{i18n>bookSearch}" liveChange=".onBookFilter" search=".onBookFilter" width="16rem" />
+                            <CheckBox id="bookOutside" text="{i18n>bookOutsideOnly}" selected="{ledger>/book/outsideOnly}" select=".onBookFilter" />
+                            <CheckBox id="bookNew" text="{i18n>bookNewOnly}" selected="{ledger>/book/newOnly}" select=".onBookFilter" />
+                        </OverflowToolbar>
+                        <MessageStrip id="bookRecordStrip" type="Information" showIcon="true" showCloseButton="true"
+                            text="{ledger>/book/recordText}" visible="{= !!${ledger>/book/recordID} }" close=".onBookClearRecord"
+                            class="sapUiTinyMarginBottom ilseNoPrint" />
+                        <OverflowToolbar id="bookNav" design="Transparent" class="ilseNoPrint">
+                            <Button id="bookFirst" icon="sap-icon://ti/chevrons-left" tooltip="{i18n>bookFirst}" press=".onBookFirst" enabled="{ledger>/book/hasPrev}" />
+                            <Button id="bookPrev" icon="sap-icon://ti/chevron-left" text="{i18n>bookPrev}" press=".onBookPrev" enabled="{ledger>/book/hasPrev}" />
+                            <ToolbarSpacer id="bookSpacer1" />
+                            <Text id="bookPosition" text="{ledger>/book/position}" class="mrHeading" />
+                            <ToolbarSpacer id="bookSpacer2" />
+                            <Label id="bookGotoLabel" text="{i18n>bookGoto}" labelFor="bookGoto" />
+                            <Input id="bookGoto" type="Number" width="6rem" value="{ledger>/book/goto}" submit=".onBookGoto" />
+                            <Button id="bookNext" icon="sap-icon://ti/chevron-right" iconFirst="false" text="{i18n>bookNext}" press=".onBookNext" enabled="{ledger>/book/hasNext}" />
+                            <Button id="bookLast" icon="sap-icon://ti/chevrons-right" tooltip="{i18n>bookLast}" press=".onBookLast" enabled="{ledger>/book/hasNext}" />
+                        </OverflowToolbar>
                         <Table id="ledgerTable"
-                            items="{ path: '/LedgerEntries', parameters: { $orderby: 'seq desc' }, templateShareable: false }"
-                            noDataText="{i18n>noEntries}" growing="true" growingThreshold="50" popinLayout="GridSmall">
+                            items="{ path: 'ledger>/book/view', templateShareable: false }"
+                            noDataText="{i18n>noEntries}" popinLayout="GridSmall">
                             <columns>
                                 <Column id="colPage" width="4rem"><Text id="colPageHdr" text="{i18n>colPage}" /></Column>
                                 <Column id="colWhen" width="12rem"><Text id="colWhenHdr" text="{i18n>colWhen}" /></Column>
@@ -106,16 +258,20 @@
                                 <Column id="colBy" width="12rem" minScreenWidth="Tablet" demandPopin="true"><Text id="colByHdr" text="{i18n>colBy}" /></Column>
                             </columns>
                             <items>
-                                <ColumnListItem id="ledgerItem" vAlign="Top" highlight="{= ${outsideApps} ? 'Error' : 'None' }">
+                                <ColumnListItem id="ledgerItem" vAlign="Top" highlight="{= ${ledger>outsideApps} ? 'Error' : (${ledger>isNew} ? 'Information' : 'None') }">
                                     <cells>
-                                        <Text id="ledgerSeq" text="{seq}" />
-                                        <Text id="ledgerAt" text="{ path: 'at', targetType: 'any', formatter: 'formatter.dateTime' }" />
-                                        <Text id="ledgerRecord" text="{recordLabel}" />
-                                        <Text id="ledgerField" text="{field}" />
-                                        <Text id="ledgerChange" text="{ parts: ['i18n>change', 'oldValue', 'newValue', 'i18n>empty'], formatter: '.formatChange' }" />
+                                        <Text id="ledgerSeq" text="{ledger>seq}" />
+                                        <Text id="ledgerAt" text="{ path: 'ledger>at', formatter: 'formatter.dateTime' }" />
+                                        <VBox id="ledgerRecordBox">
+                                            <Link id="ledgerRecord" text="{ledger>recordLabel}" press=".onBookShowRecord" visible="{ledger>isRecord}" tooltip="{i18n>bookHistory}" />
+                                            <Text id="ledgerRecordText" text="{ledger>recordLabel}" visible="{= !${ledger>isRecord} }" />
+                                            <Text id="ledgerRegister" text="{ledger>registerName}" />
+                                        </VBox>
+                                        <Text id="ledgerField" text="{ledger>fieldText}" />
+                                        <Text id="ledgerChange" text="{ledger>changeText}" />
                                         <VBox id="ledgerByBox">
-                                            <Text id="ledgerBy" text="{changedBy}" />
-                                            <ObjectStatus id="ledgerOutside" text="{i18n>outsideApps}" icon="sap-icon://ti/door-exit" state="Error" visible="{= !!${outsideApps} }" />
+                                            <Text id="ledgerBy" text="{ledger>byText}" />
+                                            <ObjectStatus id="ledgerOutside" text="{i18n>outsideApps}" icon="sap-icon://ti/door-exit" state="Error" visible="{= !!${ledger>outsideApps} }" />
                                         </VBox>
                                     </cells>
                                 </ColumnListItem>
@@ -129,9 +285,9 @@
                             <ToolbarSpacer id="dossierSpacer" />
                             <Button id="printButton" text="{i18n>printButton}" icon="sap-icon://ti/printer" press=".onPrint" enabled="{= ${ledger>/dossier}.length > 0 }" />
                         </Toolbar>
-                        <Title id="dossierTitle" text="{i18n>dossierTitle}" level="H2" class="sapUiSmallMarginBottom" />
+                        <Title id="dossierTitle" text="{i18n>dossierTitle}" level="H2" class="mrHeading sapUiSmallMarginBottom" />
                         <Text id="dossierIntro" text="{i18n>dossierIntro}" class="ilseIntro sapUiSmallMarginBottom" />
-                        <List id="dossierList" items="{ path: 'ledger>/dossier', templateShareable: false }" noDataText="{i18n>dossierEmpty}" showSeparators="Inner">
+                        <List id="dossierList" backgroundDesign="Transparent" items="{ path: 'ledger>/dossier', templateShareable: false }" noDataText="{i18n>dossierEmpty}" showSeparators="Inner">
                             <CustomListItem id="dossierItem">
                                 <VBox id="dossierBox" class="sapUiSmallMargin ilseDossierItem">
                                     <ObjectIdentifier id="dossierRecord" title="{ledger>recordLabel}" text="{ledger>register}" />
@@ -150,6 +306,7 @@
                     </IconTabFilter>
                 </items>
             </IconTabBar>
+            </VBox>
         </f:content>
     </f:DynamicPage>
 </mvc:View>
