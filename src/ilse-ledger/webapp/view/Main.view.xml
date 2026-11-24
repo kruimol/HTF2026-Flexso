@@ -53,6 +53,39 @@
             </MessageStrip>
             <IconTabBar id="tabs" selectedKey="{ledger>/tab}" expandable="false" busy="{ledger>/busy}" headerBackgroundDesign="Transparent" backgroundDesign="Transparent" class="sapUiResponsiveContentPadding">
                 <items>
+                    <!-- ====================== Timeline: when did it begin, all at once or bit by bit? ====================== -->
+                    <IconTabFilter id="tabTimeline" icon="sap-icon://ti/timeline-event" text="{i18n>tabTimeline}" key="timeline">
+                        <Text id="timelineIntro" text="{i18n>timelineIntro}" class="ilseIntro sapUiSmallMarginBottom" />
+                        <VBox id="timelineAnswers" class="ilseAnswers sapUiSmallMarginBottom">
+                            <Title id="tlBeganTitle" text="{i18n>tlBeganQ}" level="H3" class="mrHeading" />
+                            <Text id="tlBeganText" text="{ledger>/timeline/began}" class="sapUiTinyMarginBottom" />
+                            <Title id="tlPaceTitle" text="{i18n>tlPaceQ}" level="H3" class="mrHeading sapUiSmallMarginTop" />
+                            <Text id="tlPaceText" text="{ledger>/timeline/pace}" />
+                            <Text id="tlBiggestText" text="{ledger>/timeline/biggest}" visible="{= !!${ledger>/timeline/biggest} }" class="sapUiTinyMarginTop" />
+                        </VBox>
+                        <Title id="tlWholeTitle" text="{i18n>tlWhole}" level="H4" class="mrHeading" />
+                        <core:HTML id="timelineChart" content="{ledger>/timeline/svg}" sanitizeContent="false" />
+                        <Title id="tlRecentTitle" text="{i18n>tlRecent}" level="H4" class="mrHeading" />
+                        <core:HTML id="timelineRecent" content="{ledger>/timeline/svgRecent}" sanitizeContent="false" />
+                        <OverflowToolbar id="timelineToolbar" design="Transparent" class="ilseNoPrint">
+                            <CheckBox id="timelineSuspectOnly" text="{i18n>tlSuspectOnly}" selected="{ledger>/timeline/suspectOnly}" select=".onTimelineFilter" />
+                        </OverflowToolbar>
+                        <List id="timelineList" backgroundDesign="Transparent" noDataText="{i18n>noTimeline}" showSeparators="Inner"
+                            items="{ path: 'ledger>/timeline/view', sorter: { path: 'month', group: true }, templateShareable: false }">
+                            <CustomListItem id="timelineItem" highlight="{= ${ledger>level} === 'alarm' ? 'Error' : (${ledger>level} === 'suspect' ? 'Warning' : 'None') }">
+                                <VBox id="timelineBox" class="sapUiSmallMarginBeginEnd sapUiTinyMarginTopBottom">
+                                    <HBox id="timelineHead" alignItems="Center" wrap="Wrap">
+                                        <Text id="timelineTime" text="{ledger>time}" class="ilseTime sapUiSmallMarginEnd" />
+                                        <Link id="timelineRecord" text="{ledger>recordLabel}" press=".onTimelineRecord" tooltip="{i18n>bookHistory}" class="sapUiTinyMarginEnd" />
+                                        <Text id="timelineRegister" text="· {ledger>register}" />
+                                    </HBox>
+                                    <Text id="timelineWhat" text="{ledger>what} · {ledger>byText}" />
+                                    <Text id="timelineReasons" text="{ledger>reasons}" visible="{= !!${ledger>reasons} }" class="ilseQuote" />
+                                </VBox>
+                            </CustomListItem>
+                        </List>
+                    </IconTabFilter>
+
                     <!-- ====================== Suspicious records ====================== -->
                     <IconTabFilter id="tabFindings" icon="sap-icon://ti/alert-triangle" text="{i18n>tabFindings}" count="{= ${ledger>/records}.length }" key="findings">
                         <Text id="findingsIntro" text="{i18n>findingsIntro}" class="ilseIntro sapUiSmallMarginBottom" />
