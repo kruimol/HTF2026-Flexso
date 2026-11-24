@@ -26,7 +26,7 @@ export interface PlaceStory {
   /** The mystery that will become this place's puzzle. */
   readonly mystery: string;
   /** The game of this place: solve it to earn the stamp. No game yet: the stamp is free. */
-  readonly game?: "pipes" | "words";
+  readonly game?: "pipes" | "words" | "sheep";
 }
 
 const MAREN: Villager = {
@@ -115,6 +115,7 @@ export const PLACE_STORIES: readonly PlaceStory[] = [
     kind: "farm",
     about: "Fields of grain and green grass, and a few sheep.",
     villagers: [],
-    mystery: "How many sheep are grazing in the meadow?",
+    mystery: "The sheep are running wild across the meadow! Can you count them? Careful: Shep the sheepdog runs along too.",
+    game: "sheep",
   },
 ];

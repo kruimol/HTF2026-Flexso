@@ -9,6 +9,9 @@ import type ResourceModel from "sap/ui/model/resource/ResourceModel";
 import { buildHuntMap, buildPlaceArt, DRAWINGS, type HuntPipe, type HuntPlace } from "../model/huntMap";
 import { buildBoardSvg, isSolved, newPuzzle, turnCell, type PipeBoard } from "../model/pipePuzzle";
 import { buildWordGridSvg, newWordGrid, wordAt, type WordGrid } from "../model/wordSearch";
+import { answerOptions, buildMeadowSvg, newWave, type Wave } from "../model/sheepCount";
+import type { Button$PressEvent } from "sap/m/Button";
+import type Button from "sap/m/Button";
 import { PLACE_STORIES, type PlaceStory } from "../model/places";
 
 /** Where the places lie when the village data cannot be read (same as db/data Landmarks). */
@@ -93,6 +96,9 @@ export default class Main extends Controller {
   private wordDialog?: Dialog;
   private wordGrid?: WordGrid;
   private wordStart: number | null = null;
+  private sheepDialog?: Dialog;
+  private wave?: Wave;
+  private sheepTimer?: ReturnType<typeof setTimeout>;
   private cells = new Map<string, string[]>();
   private pipes: HuntPipe[] = [];
   private listening = false;
@@ -107,6 +113,7 @@ export default class Main extends Controller {
         place: { id: "", name: "", about: "", art: "", villagers: [], hasVillagers: false, mystery: "", visited: false, game: "" },
         game: { svg: "", moves: 0, solved: false },
         words: { svg: "", list: [], found: 0, total: 0, solved: false },
+        sheep: { svg: "", phase: "ready", options: [], message: "" },
       }),
       "hunt",
     );
@@ -117,6 +124,8 @@ export default class Main extends Controller {
     this.placeDialog?.destroy();
     this.gameDialog?.destroy();
     this.wordDialog?.destroy();
+    this.sheepDialog?.destroy();
+    if (this.sheepTimer) clearTimeout(this.sheepTimer);
   }
 
   /* ------------------------------ The pipe puzzle (Silverbrook Spring) ------------------------------ */
@@ -125,6 +134,11 @@ export default class Main extends Controller {
   public async onPlay(): Promise<void> {
     this.placeDialog?.close();
     const game = this.getHuntModel().getProperty("/place/game") as string;
+    if (game === "sheep") {
+      await this.readySheep();
+      (await this.getSheepDialog()).open();
+      return;
+    }
     if (game === "words") {
       await this.newWords();
       (await this.getWordDialog()).open();
@@ -132,6 +146,70 @@ export default class Main extends Controller {
     }
     this.newBoard();
     (await this.getGameDialog()).open();
+  }
+
+  /* ------------------------------ Count the sheep (South Meadow Farms) ------------------------------ */
+
+  /** Start: one wave of sheep (and Shep) runs across the meadow. */
+  public async onSheepStart(): Promise<void> {
+    const bundle = await this.getBundle();
+    const model = this.getHuntModel();
+    if (this.sheepTimer) clearTimeout(this.sheepTimer);
+    this.wave = newWave(Math.floor(Math.random() * 1_000_000) + 1);
+    model.setProperty("/sheep/phase", "running");
+    model.setProperty("/sheep/message", "");
+    model.setProperty("/sheep/svg", `<div class="scWrap">${buildMeadowSvg(this.wave, true, this.text(bundle, "sheepTitle"))}</div>`);
+    // When the last runner has left the meadow, ask how many sheep there were.
+    this.sheepTimer = setTimeout(() => {
+      model.setProperty("/sheep/options", answerOptions(this.wave?.sheep ?? 1, Math.floor(Math.random() * 1_000_000) + 1).map((value) => ({ value })));
+      model.setProperty("/sheep/phase", "answer");
+    }, ((this.wave.length ?? 0) + 0.4) * 1000);
+  }
+
+  /** The child picked a number. */
+  public async onSheepAnswer(event: Button$PressEvent): Promise<void> {
+    const model = this.getHuntModel();
+    const picked = ((event.getSource() as Button).getBindingContext("hunt")?.getObject() as { value: number } | undefined)?.value;
+    if (!this.wave || picked === undefined) return;
+    const bundle = await this.getBundle();
+    if (picked === this.wave.sheep) {
+      model.setProperty("/sheep/phase", "solved");
+      model.setProperty("/sheep/message", this.text(bundle, "sheepRight", [this.wave.sheep]));
+      await this.earnStamp(); // counted right: the stamp of the farms
+    } else {
+      model.setProperty("/sheep/phase", "wrong");
+      model.setProperty("/sheep/message", this.text(bundle, "sheepWrong", [picked, this.wave.sheep]));
+    }
+  }
+
+  public onCloseSheep(): void {
+    if (this.sheepTimer) clearTimeout(this.sheepTimer);
+    this.sheepDialog?.close();
+  }
+
+  /** Closed in any way (also Escape): stop the wave. */
+  public onSheepClosed(): void {
+    if (this.sheepTimer) clearTimeout(this.sheepTimer);
+  }
+
+  /** The empty meadow, waiting for "Start". */
+  private async readySheep(): Promise<void> {
+    if (this.sheepTimer) clearTimeout(this.sheepTimer);
+    const bundle = await this.getBundle();
+    const model = this.getHuntModel();
+    model.setProperty("/sheep/phase", "ready");
+    model.setProperty("/sheep/message", "");
+    model.setProperty("/sheep/svg", `<div class="scWrap">${buildMeadowSvg(null, false, this.text(bundle, "sheepTitle"))}</div>`);
+  }
+
+  private async getSheepDialog(): Promise<Dialog> {
+    if (!this.sheepDialog) {
+      const view = this.getView();
+      if (!view) throw new Error("view not ready");
+      this.sheepDialog = (await Fragment.load({ id: view.getId(), name: "oakhaven.hunt.view.SheepGame", controller: this })) as Dialog;
+      view.addDependent(this.sheepDialog);
+    }
+    return this.sheepDialog;
   }
 
   /* ------------------------------ The word search (The Bakery) ------------------------------ */

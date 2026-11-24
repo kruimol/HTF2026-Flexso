@@ -255,3 +255,28 @@ body {
 .wsBand3 { stroke: #3f8fd6; }
 .wsSelected { fill: rgba(192, 112, 63, 0.2); stroke: #c0703f; stroke-width: 5; }
 .wsWord { font-family: "Courier Prime", "Courier New", monospace; font-size: 1.1rem; letter-spacing: 2px; }
+
+/* ---------- Count the sheep (South Meadow Farms) ---------- */
+.scWrap svg { display: block; width: 100%; height: auto; border-radius: 0.75rem; border: 1px solid var(--mrCopperLine); }
+.scSky { fill: #2b3a4a; }
+.scHill { fill: #4f6b33; }
+.scGrass { fill: #5d7d3a; }
+.scSun { fill: #d4a24c; }
+.scPost, .scRail { fill: #8a6d4a; stroke: #3a2b1a; stroke-width: 2; }
+.scWool circle { fill: #f4f1ea; stroke: #3a3a3a; stroke-width: 2; }
+.scHead { fill: #2e2a28; }
+.scEye { fill: #f3e6c8; }
+.scLegs rect, .scDogLegs rect { fill: #2e2a28; }
+.scDog { fill: #7a4a24; stroke: #2a1a0c; stroke-width: 2; }
+.scDogWhite { fill: #f4f1ea; }
+.scDogTail { fill: none; stroke: #7a4a24; stroke-width: 7; stroke-linecap: round; }
+.scDogEar { fill: #3a2414; }
+.scNose { fill: #111; }
+/* Each runner starts off-screen left and runs to the right after its own delay (set inline). */
+.scRunner { transform: translateX(-140px); animation-name: scRun; animation-timing-function: linear; animation-fill-mode: both; }
+@keyframes scRun { from { transform: translateX(-140px); } to { transform: translateX(1140px); } }
+.scHop { animation: scHop 0.45s ease-in-out infinite; }
+.scTrot { animation: scTrot 0.3s ease-in-out infinite; }
+@keyframes scHop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+@keyframes scTrot { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+.scOption { min-width: 4rem; font-size: 1.25rem; }
