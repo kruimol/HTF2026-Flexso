@@ -227,6 +227,10 @@ async function syncUnlocked(): Promise<number> {
   const newSeals: object[] = [];
   const now = new Date().toISOString();
   let total = 0;
+  // A pipe is written down by its name (PRIMARY-MAIN), not by its ID: Ilse has to be able to read it.
+  const pipeNames = new Map(((await SELECT.from('oakhaven.curse.WaterPipes').columns('ID', 'pipeID')) as Array<{ ID: string; pipeID: string }>)
+    .map((pipe) => [pipe.ID, pipe.pipeID]));
+  const readable = (field: string, value: string): string => (field === 'pipe_ID' && value ? pipeNames.get(value) ?? value : value);
 
   for (const register of FOLLOWED) {
     const rows = (await SELECT.from(`oakhaven.curse.${register.entityName}`).columns(
@@ -260,7 +264,7 @@ async function syncUnlocked(): Promise<number> {
       const outsideApps = text(seal.modifiedAt) === text(row.modifiedAt);
       for (const field of changed) {
         entries.push({ entityName: register.entityName, recordID: row.ID, recordLabel, field,
-          oldValue: before[field] ?? '', newValue: snapshot[field], changedBy: outsideApps ? '?' : row.modifiedBy ?? '?', outsideApps });
+          oldValue: readable(field, before[field] ?? ''), newValue: readable(field, snapshot[field]), changedBy: outsideApps ? '?' : row.modifiedBy ?? '?', outsideApps });
       }
       newSeals.push(sealRow);
     }
@@ -277,8 +281,9 @@ async function syncUnlocked(): Promise<number> {
     // Every record gets a seal now; the first page says what the ledger started from.
     entries.unshift({ entityName: '', recordID: null, recordLabel: 'Het dorpsregister', field: '(verzegeling)', oldValue: '',
       newValue: fromOriginal
-        ? `${total} records verzegeld, vergeleken met het oorspronkelijke register (db/data): ${entries.length} verschil(len)`
-        : `${total} records verzegeld`,
+        ? `${total} records verzegeld en vergeleken met het oorspronkelijke register: ${
+          entries.length === 0 ? 'geen verschillen' : entries.length === 1 ? '1 verschil' : `${entries.length} verschillen`}.`
+        : `${total} records verzegeld.`,
       changedBy: 'ilse.ledger', outsideApps: false });
   }
   if (newSeals.length > 0) await UPSERT.into(SEALS).entries(newSeals);

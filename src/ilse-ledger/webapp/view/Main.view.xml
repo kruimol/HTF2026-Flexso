@@ -170,13 +170,14 @@
                                         <Text id="ledgerSeq" text="{ledger>seq}" />
                                         <Text id="ledgerAt" text="{ path: 'ledger>at', formatter: 'formatter.dateTime' }" />
                                         <VBox id="ledgerRecordBox">
-                                            <Link id="ledgerRecord" text="{ledger>recordLabel}" press=".onBookShowRecord" enabled="{= !!${ledger>recordID} }" tooltip="{i18n>bookHistory}" />
+                                            <Link id="ledgerRecord" text="{ledger>recordLabel}" press=".onBookShowRecord" visible="{ledger>isRecord}" tooltip="{i18n>bookHistory}" />
+                                            <Text id="ledgerRecordText" text="{ledger>recordLabel}" visible="{= !${ledger>isRecord} }" />
                                             <Text id="ledgerRegister" text="{ledger>registerName}" />
                                         </VBox>
-                                        <Text id="ledgerField" text="{ledger>field}" />
+                                        <Text id="ledgerField" text="{ledger>fieldText}" />
                                         <Text id="ledgerChange" text="{ledger>changeText}" />
                                         <VBox id="ledgerByBox">
-                                            <Text id="ledgerBy" text="{ledger>changedBy}" />
+                                            <Text id="ledgerBy" text="{ledger>byText}" />
                                             <ObjectStatus id="ledgerOutside" text="{i18n>outsideApps}" icon="sap-icon://ti/door-exit" state="Error" visible="{= !!${ledger>outsideApps} }" />
                                         </VBox>
                                     </cells>

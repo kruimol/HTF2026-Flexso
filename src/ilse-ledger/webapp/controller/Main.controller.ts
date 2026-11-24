@@ -70,8 +70,52 @@ interface PageData {
 /** A page as the book shows it. */
 interface BookPage extends PageData {
   registerName: string;
+  fieldText: string;
   changeText: string;
+  byText: string;
+  isRecord: boolean;
   isNew: boolean;
+}
+
+/** Field names as Ilse would say them, per register. */
+const FIELD_NAMES: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  WaterPipes: {
+    pipeID: "leidingnummer", location: "ligging", startPoint: "beginpunt", endPoint: "eindpunt",
+    pipelineType: "soort leiding", diameter: "diameter (mm)", length: "lengte (m)",
+    nominalFlowRate: "maximale doorstroming (L/min)", currentFlowRate: "doorstroming (L/min)",
+    currentPressure: "druk (PSI)", lastMaintenance: "laatste onderhoud", mapPath: "plaats op de kaart",
+  },
+  Sensors: { pipe_ID: "leiding", sensorID: "sensornummer", flowRate: "gemeten doorstroming (L/min)", pressure: "gemeten druk (PSI)" },
+  Repairs: { pipe_ID: "leiding", issue: "omschrijving", repairDate: "datum van de reparatie", repairedBy: "hersteld door" },
+  StockItems: {
+    itemID: "artikelcode", name: "naam", unit: "eenheid", currentQuantity: "voorraad",
+    minStockLevel: "minimum", consumptionRate: "dagverbruik",
+  },
+  Landmarks: { name: "naam", kind: "soort", gridCell: "vak op de kaart", suppliedBy: "krijgt water van" },
+};
+
+/** User names as people: "maren.holt" → "Maren Holt". */
+const PEOPLE: Readonly<Record<string, string>> = {
+  "maren.holt": "Maren Holt",
+  "tobin.reyes": "Tobin Reyes",
+  "rowan.ashby": "Rowan Ashby",
+  "ilse.vermeer": "Ilse Vermeer",
+  council: "De dorpsraad",
+  "ilse.ledger": "Het grootboek zelf",
+  system: "Systeemaccount 'system'",
+  anonymous: "Zonder naam",
+  "?": "Onbekend",
+};
+
+export function personName(user: string | null | undefined): string {
+  if (!user) return "Onbekend";
+  return PEOPLE[user] ?? user;
+}
+
+/** "2026-08-20T09:00:00.000Z" → "20 aug 2026, 09:00:00"; anything else unchanged. */
+function readableValue(value: string | null): string {
+  if (value && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) return dateTime(value) || value;
+  return value ?? "";
 }
 
 /** How many pages the book shows at once. */
@@ -310,10 +354,27 @@ export default class Main extends Controller {
       await this.getODataModel().bindList("/LedgerEntries", undefined, [new Sorter("seq")]).requestContexts(0, 100000)
     ).map((context) => {
       const page = context.getObject() as PageData;
+      const oldValue = readableValue(page.oldValue);
+      const newValue = readableValue(page.newValue);
+      // Pages the ledger writes about itself or about a whole record: a sentence, not "was → werd".
+      const special: Record<string, [string, string]> = {
+        "(verzegeling)": [t(bundle, "pageSeal"), newValue],
+        "(nieuw record)": [t(bundle, "pageNew"), t(bundle, "pageNewText", [newValue])],
+        "(record verwijderd)": [t(bundle, "pageDeleted"), t(bundle, "pageDeletedText", [oldValue])],
+        "(gemarkeerd: niet te vertrouwen)": [t(bundle, "pageMarked"), t(bundle, "pageMarkedText", [newValue])],
+        "(markering opgeheven)": [t(bundle, "pageCleared"), t(bundle, "pageClearedText", [oldValue])],
+      };
+      const [fieldText, changeText] = special[page.field] ?? [
+        FIELD_NAMES[page.entityName]?.[page.field] ?? page.field,
+        t(bundle, "change", [oldValue || empty, newValue || empty]),
+      ];
       return {
         ...page,
-        registerName: REGISTER_NAMES[page.entityName] ?? "",
-        changeText: t(bundle, "change", [page.oldValue || empty, page.newValue || empty]),
+        registerName: REGISTER_NAMES[page.entityName] ?? t(bundle, "pageLedger"),
+        fieldText,
+        changeText,
+        byText: personName(page.changedBy),
+        isRecord: Boolean(page.recordID),
         isNew: Boolean(lastSeen && page.at > lastSeen && !OWN_USERS.has(page.changedBy)),
       } satisfies BookPage;
     });
@@ -526,13 +587,13 @@ export default class Main extends Controller {
           register: finding.register,
           recordID: finding.recordID,
           recordLabel: finding.recordLabel,
-          changedText: finding.changedAt ? t(bundle, "lastChange", [dateTime(finding.changedAt), finding.changedBy]) : "",
+          changedText: finding.changedAt ? t(bundle, "lastChange", [dateTime(finding.changedAt), personName(finding.changedBy)]) : "",
           reasons: [],
           askOnly: true,
           untrusted: finding.untrusted,
           markID: finding.mark_ID,
           markReasonText: finding.markReason ? t(bundle, "markedReason", [finding.markReason]) : "",
-          markedText: mark ? t(bundle, "dossierMarkedBy", [mark.markedBy ?? "", dateTime(mark.createdAt)]) : "",
+          markedText: mark ? t(bundle, "dossierMarkedBy", [personName(mark.markedBy), dateTime(mark.createdAt)]) : "",
         };
         rows.set(key, row);
       }
