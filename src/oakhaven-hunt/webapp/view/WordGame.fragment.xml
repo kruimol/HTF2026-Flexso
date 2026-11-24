@@ -1,0 +1,27 @@
+<core:FragmentDefinition xmlns="sap.m" xmlns:core="sap.ui.core">
+    <!-- The word search at The Bakery: find Tobin's baking words -->
+    <Dialog id="wordGame" title="{i18n>wordsTitle}" contentWidth="52rem" class="mrTheme sapUiContentPadding" draggable="false" resizable="false">
+        <content>
+            <VBox id="wordContent">
+                <Text id="wordHowTo" text="{i18n>wordsHowTo}" class="huntSays sapUiSmallMarginBottom" />
+                <FlexBox id="wordLayout" wrap="Wrap" alignItems="Start" class="wsLayout">
+                    <core:HTML id="wordBoard" content="{hunt>/words/svg}" sanitizeContent="false" preferDOM="false" />
+                    <VBox id="wordSide" class="wsSide">
+                        <Title id="wordListTitle" text="{i18n>wordsFind}" level="H3" class="mrHeading sapUiTinyMarginBottom" />
+                        <VBox id="wordList" items="{ path: 'hunt>/words/list', templateShareable: false }">
+                            <ObjectStatus id="wordItem" text="{hunt>word}" class="wsWord sapUiTinyMarginBottom"
+                                icon="{= ${hunt>found} ? 'sap-icon://ti/circle-check' : 'sap-icon://ti/circle-dashed' }"
+                                state="{= ${hunt>found} ? 'Success' : 'None' }" />
+                        </VBox>
+                        <ObjectStatus id="wordCount" text="{hunt>/words/found} / {hunt>/words/total}" icon="sap-icon://ti/bread" state="Information" class="sapUiSmallMarginTop" />
+                    </VBox>
+                </FlexBox>
+                <MessageStrip id="wordWin" text="{i18n>wordsWin}" type="Success" showIcon="true" visible="{hunt>/words/solved}" class="sapUiSmallMarginTop" />
+            </VBox>
+        </content>
+        <buttons>
+            <Button id="wordNew" text="{i18n>wordsNew}" icon="sap-icon://ti/refresh" press=".onNewWords" />
+            <Button id="wordClose" text="{i18n>close}" type="Emphasized" press=".onCloseWords" />
+        </buttons>
+    </Dialog>
+</core:FragmentDefinition>

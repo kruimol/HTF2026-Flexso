@@ -26,7 +26,7 @@ export interface PlaceStory {
   /** The mystery that will become this place's puzzle. */
   readonly mystery: string;
   /** The game of this place: solve it to earn the stamp. No game yet: the stamp is free. */
-  readonly game?: "pipes";
+  readonly game?: "pipes" | "words";
 }
 
 const MAREN: Villager = {
@@ -100,7 +100,8 @@ export const PLACE_STORIES: readonly PlaceStory[] = [
     kind: "bakery",
     about: "Where Tobin bakes bread every day. The chimney is always smoking.",
     villagers: [TOBIN],
-    mystery: "Tobin lost count of his buns. Help him find out how many he needs for the whole village!",
+    mystery: "Tobin's recipe book got wet and all the words ran together. Can you find his baking words again?",
+    game: "words",
   },
   {
     name: "Shepherd's Inn",

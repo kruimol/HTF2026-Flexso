@@ -8,6 +8,7 @@ import type ResourceBundle from "sap/base/i18n/ResourceBundle";
 import type ResourceModel from "sap/ui/model/resource/ResourceModel";
 import { buildHuntMap, buildPlaceArt, DRAWINGS, type HuntPipe, type HuntPlace } from "../model/huntMap";
 import { buildBoardSvg, isSolved, newPuzzle, turnCell, type PipeBoard } from "../model/pipePuzzle";
+import { buildWordGridSvg, newWordGrid, wordAt, type WordGrid } from "../model/wordSearch";
 import { PLACE_STORIES, type PlaceStory } from "../model/places";
 
 /** Where the places lie when the village data cannot be read (same as db/data Landmarks). */
@@ -24,6 +25,9 @@ const FALLBACK_CELLS: Readonly<Record<string, readonly string[]>> = {
 
 /** The pipe puzzle: 5 × 5 is right for children; small enough for a phone too. */
 const PUZZLE_SIZE = 5;
+
+/** The word search: 10 × 10, words from the i18n file (so the language of the words can change). */
+const WORD_GRID_SIZE = 10;
 
 /** Stamps are kept in this browser: a child's own progress (a convenience, not village data). */
 const STAMPS_KEY = "oakhaven.hunt.stamps";
@@ -86,6 +90,9 @@ export default class Main extends Controller {
   private placeDialog?: Dialog;
   private gameDialog?: Dialog;
   private board?: PipeBoard;
+  private wordDialog?: Dialog;
+  private wordGrid?: WordGrid;
+  private wordStart: number | null = null;
   private cells = new Map<string, string[]>();
   private pipes: HuntPipe[] = [];
   private listening = false;
@@ -99,6 +106,7 @@ export default class Main extends Controller {
         allFound: false,
         place: { id: "", name: "", about: "", art: "", villagers: [], hasVillagers: false, mystery: "", visited: false, game: "" },
         game: { svg: "", moves: 0, solved: false },
+        words: { svg: "", list: [], found: 0, total: 0, solved: false },
       }),
       "hunt",
     );
@@ -108,6 +116,7 @@ export default class Main extends Controller {
   public onExit(): void {
     this.placeDialog?.destroy();
     this.gameDialog?.destroy();
+    this.wordDialog?.destroy();
   }
 
   /* ------------------------------ The pipe puzzle (Silverbrook Spring) ------------------------------ */
@@ -115,8 +124,92 @@ export default class Main extends Controller {
   /** From the place card: play the place's game. */
   public async onPlay(): Promise<void> {
     this.placeDialog?.close();
+    const game = this.getHuntModel().getProperty("/place/game") as string;
+    if (game === "words") {
+      await this.newWords();
+      (await this.getWordDialog()).open();
+      return;
+    }
     this.newBoard();
     (await this.getGameDialog()).open();
+  }
+
+  /* ------------------------------ The word search (The Bakery) ------------------------------ */
+
+  public async onNewWords(): Promise<void> {
+    await this.newWords();
+  }
+
+  public onCloseWords(): void {
+    this.wordDialog?.close();
+  }
+
+  private async newWords(): Promise<void> {
+    const bundle = await this.getBundle();
+    const words = this.text(bundle, "wordsBakery").split(",").map((word) => word.trim().toUpperCase()).filter(Boolean);
+    this.wordGrid = newWordGrid(words, WORD_GRID_SIZE, Math.floor(Math.random() * 1_000_000) + 1);
+    this.wordStart = null;
+    const model = this.getHuntModel();
+    model.setProperty("/words/list", words.map((word) => ({ word, found: false })));
+    model.setProperty("/words/total", words.length);
+    model.setProperty("/words/found", 0);
+    model.setProperty("/words/solved", false);
+    await this.drawWords();
+  }
+
+  /**
+   * A letter was clicked. First click: the first letter of a word. Second click: its last letter.
+   * Not a word? Then the second click becomes the start of a new try.
+   */
+  private async clickLetter(index: number): Promise<void> {
+    const model = this.getHuntModel();
+    if (!this.wordGrid || model.getProperty("/words/solved")) return;
+    if (this.wordStart === null || this.wordStart === index) {
+      this.wordStart = this.wordStart === index ? null : index;
+    } else {
+      const word = wordAt(this.wordGrid, this.wordStart, index);
+      const list = model.getProperty("/words/list") as Array<{ word: string; found: boolean }>;
+      const entry = list.find((item) => item.word === word && !item.found);
+      if (entry) {
+        entry.found = true;
+        model.setProperty("/words/list", [...list]);
+        const found = list.filter((item) => item.found).length;
+        model.setProperty("/words/found", found);
+        this.wordStart = null;
+        if (found === list.length) {
+          model.setProperty("/words/solved", true);
+          await this.earnStamp(); // all of Tobin's words found: the stamp of the bakery
+        }
+      } else {
+        this.wordStart = index;
+      }
+    }
+    await this.drawWords();
+  }
+
+  private async drawWords(): Promise<void> {
+    if (!this.wordGrid) return;
+    const bundle = await this.getBundle();
+    const model = this.getHuntModel();
+    const found = (model.getProperty("/words/list") as Array<{ word: string; found: boolean }>).filter((item) => item.found).map((item) => item.word);
+    model.setProperty("/words/svg", `<div class="wsWrap">${buildWordGridSvg(this.wordGrid, found, this.wordStart, {
+      title: this.text(bundle, "wordsTitle"),
+      letter: this.text(bundle, "wordsLetter"),
+    })}</div>`);
+    const html = this.byId("wordBoard") as HTML | undefined;
+    if (html) setTimeout(() => this.listenFor(html, "data-letter", (value) => void this.clickLetter(Number(value))), 0);
+  }
+
+  private async getWordDialog(): Promise<Dialog> {
+    if (!this.wordDialog) {
+      const view = this.getView();
+      if (!view) throw new Error("view not ready");
+      this.wordDialog = (await Fragment.load({ id: view.getId(), name: "oakhaven.hunt.view.WordGame", controller: this })) as Dialog;
+      view.addDependent(this.wordDialog);
+      const html = this.byId("wordBoard") as HTML | undefined;
+      html?.attachAfterRendering(() => this.listenFor(html, "data-letter", (value) => void this.clickLetter(Number(value))));
+    }
+    return this.wordDialog;
   }
 
   public onNewPuzzle(): void {
