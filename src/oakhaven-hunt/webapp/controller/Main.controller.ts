@@ -88,6 +88,16 @@ function writeStamps(stamps: readonly string[]): void {
   }
 }
 
+/** True when the page was opened with ?demo (also inside the launchpad). */
+function isDemo(): boolean {
+  try {
+    const search = (globalThis as unknown as { location?: { search?: string; hash?: string } }).location;
+    return /[?&]demo\b/.test(`${search?.search ?? ""}${search?.hash ?? ""}`);
+  } catch {
+    return false;
+  }
+}
+
 function readPrize(): string {
   try {
     return storage()?.getItem(PRIZE_KEY) ?? "";
@@ -152,6 +162,8 @@ export default class Main extends Controller {
         market: { svg: "", done: 0, total: 0, solved: false, message: "", wrong: false },
         memory: { svg: "", tries: 0, pairs: 0, total: 0, solved: false },
         prize: { code: readPrize(), svg: "" },
+        // Demo mode (?demo in the URL): a "Skip" button on every place and game, for the jury demo.
+        demo: isDemo(),
       }),
       "hunt",
     );
@@ -612,6 +624,15 @@ export default class Main extends Controller {
       if (dialog?.isOpen()) dialog.close();
     }
     this.celebrationDialog.open();
+  }
+
+  /** Demo only: earn the stamp of the open place without playing, and close its game. */
+  public async onSkipGame(): Promise<void> {
+    for (const dialog of [this.gameDialog, this.wordDialog, this.sheepDialog, this.marketDialog, this.memoryDialog, this.placeDialog]) {
+      if (dialog?.isOpen()) dialog.close();
+    }
+    if (this.sheepTimer) clearTimeout(this.sheepTimer);
+    await this.earnStamp();
   }
 
   public onClosePrize(): void {

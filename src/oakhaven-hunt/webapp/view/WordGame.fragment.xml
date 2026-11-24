@@ -20,6 +20,7 @@
             </VBox>
         </content>
         <buttons>
+            <Button id="wordSkip" text="{i18n>skipDemo}" icon="sap-icon://ti/player-skip-forward" type="Attention" visible="{hunt>/demo}" press=".onSkipGame" />
             <Button id="wordNew" text="{i18n>wordsNew}" icon="sap-icon://ti/refresh" press=".onNewWords" />
             <Button id="wordClose" text="{i18n>close}" type="Emphasized" press=".onCloseWords" />
         </buttons>

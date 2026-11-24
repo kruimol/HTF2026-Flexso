@@ -20,7 +20,10 @@
                     <Label id="pageSubtitle" text="{i18n>pageSubtitle}" />
                 </f:expandedContent>
                 <f:content>
-                    <ObjectStatus id="progress" text="{hunt>/progress}" icon="sap-icon://ti/rosette" state="{= ${hunt>/allFound} ? 'Success' : 'Information' }" inverted="true" />
+                    <HBox id="headerStatus" alignItems="Center">
+                        <ObjectStatus id="progress" text="{hunt>/progress}" icon="sap-icon://ti/rosette" state="{= ${hunt>/allFound} ? 'Success' : 'Information' }" inverted="true" class="sapUiSmallMarginEnd" />
+                        <ObjectStatus id="demoMode" text="{i18n>demoMode}" icon="sap-icon://ti/presentation" state="Warning" visible="{hunt>/demo}" />
+                    </HBox>
                 </f:content>
                 <f:actions>
                     <Button id="resetButton" icon="sap-icon://ti/refresh" text="{i18n>reset}" type="Transparent" press=".onReset" />

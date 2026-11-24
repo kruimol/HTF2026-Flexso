@@ -14,6 +14,7 @@
             </VBox>
         </content>
         <buttons>
+            <Button id="marketSkip" text="{i18n>skipDemo}" icon="sap-icon://ti/player-skip-forward" type="Attention" visible="{hunt>/demo}" press=".onSkipGame" />
             <Button id="marketNew" text="{i18n>marketNew}" icon="sap-icon://ti/refresh" press=".onNewMarket" />
             <Button id="marketClose" text="{i18n>close}" type="Emphasized" press=".onCloseMarket" />
         </buttons>

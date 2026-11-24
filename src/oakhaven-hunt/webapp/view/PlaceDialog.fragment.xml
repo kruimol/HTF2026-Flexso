@@ -25,6 +25,7 @@
             </VBox>
         </content>
         <buttons>
+            <Button id="placeSkip" text="{i18n>skipDemo}" icon="sap-icon://ti/player-skip-forward" type="Attention" visible="{= ${hunt>/demo} &amp;&amp; !!${hunt>/place/game} &amp;&amp; !${hunt>/place/visited} }" press=".onSkipGame" />
             <!-- A place with a game: play it to earn the stamp. Without a game (yet): the stamp is free. -->
             <Button id="playButton" text="{= ${hunt>/place/visited} ? ${i18n>playAgain} : ${i18n>play} }" icon="sap-icon://ti/player-play"
                 type="Emphasized" visible="{= !!${hunt>/place/game} }" press=".onPlay" />

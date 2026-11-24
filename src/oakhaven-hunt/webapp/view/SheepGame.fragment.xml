@@ -21,6 +21,7 @@
             </VBox>
         </content>
         <buttons>
+            <Button id="sheepSkip" text="{i18n>skipDemo}" icon="sap-icon://ti/player-skip-forward" type="Attention" visible="{hunt>/demo}" press=".onSkipGame" />
             <Button id="sheepStart" text="{i18n>sheepStart}" icon="sap-icon://ti/player-play" type="Emphasized"
                 visible="{= ${hunt>/sheep/phase} === 'ready' }" press=".onSheepStart" />
             <Button id="sheepAgain" text="{= ${hunt>/sheep/phase} === 'solved' ? ${i18n>sheepPlayAgain} : ${i18n>sheepTryAgain} }" icon="sap-icon://ti/refresh"

@@ -13,6 +13,7 @@
             </VBox>
         </content>
         <buttons>
+            <Button id="memorySkip" text="{i18n>skipDemo}" icon="sap-icon://ti/player-skip-forward" type="Attention" visible="{hunt>/demo}" press=".onSkipGame" />
             <Button id="memoryNew" text="{i18n>memoryNew}" icon="sap-icon://ti/refresh" press=".onNewMemory" />
             <Button id="memoryClose" text="{i18n>close}" type="Emphasized" press=".onCloseMemory" />
         </buttons>

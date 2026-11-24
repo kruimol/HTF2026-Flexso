@@ -12,6 +12,7 @@
             </VBox>
         </content>
         <buttons>
+            <Button id="pipeSkip" text="{i18n>skipDemo}" icon="sap-icon://ti/player-skip-forward" type="Attention" visible="{hunt>/demo}" press=".onSkipGame" />
             <Button id="pipeNew" text="{i18n>pipesNew}" icon="sap-icon://ti/refresh" press=".onNewPuzzle" />
             <Button id="pipeClose" text="{i18n>close}" type="Emphasized" press=".onCloseGame" />
         </buttons>
