@@ -50,13 +50,6 @@ const ROWAN: Villager = {
   says: "Welcome to the square! Tonight the whole village comes here for the fair: lanterns, music and Tobin's buns.",
 };
 
-const ILSE: Villager = {
-  name: "Ilse Vermeer",
-  role: "Librarian",
-  initials: "IV",
-  says: "Every story of Oakhaven is written down somewhere. Some pages have strange letters on them. Can you read them?",
-};
-
 /** In the order a child would walk: from the spring down to the farms. */
 export const PLACE_STORIES: readonly PlaceStory[] = [
   {
@@ -93,7 +86,7 @@ export const PLACE_STORIES: readonly PlaceStory[] = [
     name: "Central Market Square",
     kind: "market",
     about: "The heart of the village: stalls, a well, and tonight the fair.",
-    villagers: [ROWAN, ILSE],
+    villagers: [ROWAN],
     mystery: "The fair is tonight, but the market wagon tipped over and everything is mixed up! Help Rowan bring every product to the right stall.",
     game: "market",
   },
