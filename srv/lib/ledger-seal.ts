@@ -33,7 +33,7 @@ const SYNC_INTERVAL_MS = 15_000;
 const GENESIS_HASH = '0'.repeat(64);
 
 /** The registers the ledger follows, with the fields that matter and how to name a record. */
-const FOLLOWED: ReadonlyArray<{ entityName: string; fields: readonly string[]; labelField: string }> = [
+export const FOLLOWED: ReadonlyArray<{ entityName: string; fields: readonly string[]; labelField: string }> = [
   {
     entityName: 'WaterPipes',
     labelField: 'pipeID',

@@ -126,6 +126,41 @@
                         </List>
                     </IconTabFilter>
 
+                    <!-- ====================== All sealed records ====================== -->
+                    <IconTabFilter id="tabAll" icon="sap-icon://ti/list-details" text="{i18n>tabAll}" count="{= ${ledger>/allRecords}.length }" key="all">
+                        <Text id="allIntro" text="{i18n>allIntro}" class="ilseIntro sapUiSmallMarginBottom" />
+                        <OverflowToolbar id="allFilters" design="Transparent" class="ilseNoPrint">
+                            <Select id="allRegister" selectedKey="{ledger>/allRegister}" change=".onAllFilter" items="{ path: 'ledger>/book/registers', templateShareable: false }">
+                                <core:Item id="allRegisterItem" key="{ledger>key}" text="{ledger>text}" />
+                            </Select>
+                            <SearchField id="allSearch" value="{ledger>/allSearch}" placeholder="{i18n>bookSearch}" liveChange=".onAllFilter" search=".onAllFilter" width="16rem" />
+                        </OverflowToolbar>
+                        <Table id="allTable" items="{ path: 'ledger>/allView', templateShareable: false }" noDataText="{i18n>bookEmpty}" popinLayout="GridSmall">
+                            <columns>
+                                <Column id="allColRecord" width="14rem"><Text id="allColRecordHdr" text="{i18n>colRecord}" /></Column>
+                                <Column id="allColNow"><Text id="allColNowHdr" text="{i18n>colNow}" /></Column>
+                                <Column id="allColChange" width="13rem" minScreenWidth="Tablet" demandPopin="true"><Text id="allColChangeHdr" text="{i18n>colLastChange}" /></Column>
+                                <Column id="allColHistory" width="13rem" minScreenWidth="Tablet" demandPopin="true"><Text id="allColHistoryHdr" text="{i18n>colHistory}" /></Column>
+                                <Column id="allColTrust" width="16rem" minScreenWidth="Tablet" demandPopin="true"><Text id="allColTrustHdr" text="{i18n>colTrust}" /></Column>
+                            </columns>
+                            <items>
+                                <ColumnListItem id="allItem" vAlign="Top" highlight="{ledger>state}">
+                                    <cells>
+                                        <ObjectIdentifier id="allRecord" title="{ledger>recordLabel}" text="{ledger>register}" titleActive="true" titlePress=".onAllHistory" tooltip="{i18n>bookHistory}" />
+                                        <Text id="allSummary" text="{ledger>summary}" />
+                                        <Text id="allChanged" text="{ledger>changedText}" />
+                                        <ObjectStatus id="allHistory" text="{ledger>historyText}" icon="{= ${ledger>pages} > 0 ? 'sap-icon://ti/book' : 'sap-icon://ti/lock' }" state="{= ${ledger>pages} > 0 ? 'Information' : 'None' }" />
+                                        <VBox id="allTrust">
+                                            <ObjectStatus id="allState" text="{ledger>stateText}" icon="{ledger>stateIcon}" state="{ledger>state}" />
+                                            <Button id="allMarkButton" text="{i18n>markButton}" icon="sap-icon://ti/flag-3" type="Emphasized"
+                                                visible="{= !${ledger>untrusted} }" press=".onMark" class="sapUiTinyMarginTop" />
+                                        </VBox>
+                                    </cells>
+                                </ColumnListItem>
+                            </items>
+                        </Table>
+                    </IconTabFilter>
+
                     <!-- ====================== Sealed ledger ====================== -->
                     <IconTabFilter id="tabLedger" icon="sap-icon://ti/book" text="{i18n>tabLedger}" key="ledger">
                         <Text id="ledgerIntro" text="{i18n>ledgerIntro}" class="ilseIntro sapUiSmallMarginBottom" />

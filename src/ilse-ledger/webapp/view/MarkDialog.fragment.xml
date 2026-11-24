@@ -2,7 +2,7 @@
     <Dialog id="markDialog" title="{ledger>/mark/title}" contentWidth="34rem" class="mrTheme sapUiContentPadding">
         <content>
             <VBox id="markContent">
-                <Label id="markWhatLabel" text="{i18n>markWhatWeSee}" design="Bold" />
+                <Label id="markWhatLabel" text="{i18n>markWhatWeSee}" design="Bold" visible="{= ${ledger>/mark/reasons}.length > 0 }" />
                 <VBox id="markReasons" items="{ path: 'ledger>/mark/reasons', templateShareable: false }" class="sapUiTinyMarginTop sapUiSmallMarginBottom">
                     <HBox id="markReasonLine" alignItems="Start" class="sapUiTinyMarginBottom">
                         <core:Icon id="markReasonIcon" src="{ledger>icon}" class="sapUiTinyMarginEnd" />

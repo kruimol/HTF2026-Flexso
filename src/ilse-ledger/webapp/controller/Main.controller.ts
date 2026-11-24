@@ -67,6 +67,29 @@ interface PageData {
   outsideApps: boolean;
 }
 
+/** One followed record, as `records()` sends it. */
+interface RecordInfoData {
+  entityName: string;
+  register: string;
+  recordID: string;
+  recordLabel: string;
+  summary: string;
+  changedBy: string;
+  changedAt: string | null;
+  pages: number;
+}
+
+/** A record in the tab "Alle records". */
+interface AllRecordRow extends RecordInfoData {
+  changedText: string;
+  historyText: string;
+  state: string;
+  stateText: string;
+  stateIcon: string;
+  untrusted: boolean;
+  reasons: Reason[];
+}
+
 /** A page as the book shows it. */
 interface BookPage extends PageData {
   registerName: string;
@@ -207,6 +230,10 @@ export default class Main extends Controller {
         busy: true,
         records: [],
         askRecords: [],
+        allRecords: [],
+        allView: [],
+        allSearch: "",
+        allRegister: "",
         dossier: [],
         moments: [],
         summary: { suspect: "", marked: "", ask: "" },
@@ -237,6 +264,48 @@ export default class Main extends Controller {
     writeLastSeen(now);
     this.getLedgerModel().setProperty("/lastSeen", now);
     void this.load();
+  }
+
+  /* ------------------------------ All records ------------------------------ */
+
+  public onAllFilter(): void {
+    const model = this.getLedgerModel();
+    const search = String(model.getProperty("/allSearch") ?? "").trim().toLowerCase();
+    const register = String(model.getProperty("/allRegister") ?? "");
+    model.setProperty("/allView", (model.getProperty("/allRecords") as AllRecordRow[]).filter((row) =>
+      (!register || row.entityName === register) &&
+      (!search || `${row.recordLabel} ${row.summary}`.toLowerCase().includes(search))));
+  }
+
+  /** "Alle records": open the history of a record in the ledger. */
+  public onAllHistory(event: { getSource(): unknown }): void {
+    const row = (event.getSource() as ObjectIdentifier).getBindingContext("ledger")?.getObject() as AllRecordRow | undefined;
+    if (row) void this.showHistory(row.recordID, row.recordLabel, row.register);
+  }
+
+  private async loadAllRecords(bundle: ResourceBundle, findings: readonly RecordRow[]): Promise<void> {
+    const byKey = new Map(findings.map((row) => [row.key, row]));
+    const rows = (await this.getODataModel().bindList("/records()").requestContexts(0, 100000)).map((context) => {
+      const info = context.getObject() as RecordInfoData;
+      const finding = byKey.get(`${info.entityName}|${info.recordID}`);
+      const untrusted = Boolean(finding?.untrusted);
+      const suspect = Boolean(finding && !finding.askOnly);
+      const ask = Boolean(finding?.askOnly);
+      return {
+        ...info,
+        changedText: info.changedAt ? t(bundle, "lastChange", [dateTime(info.changedAt), personName(info.changedBy)]) : "",
+        historyText: info.pages === 0 ? t(bundle, "allUnchanged") : t(bundle, "allChanged", [info.pages]),
+        untrusted,
+        reasons: finding?.reasons ?? [],
+        state: untrusted ? "Error" : suspect ? "Warning" : ask ? "Information" : "Success",
+        stateText: t(bundle, untrusted ? "untrusted" : suspect ? "allSuspect" : ask ? "allAsk" : "allOk"),
+        stateIcon: untrusted ? "sap-icon://ti/flag-3" : suspect ? "sap-icon://ti/alert-triangle"
+          : ask ? "sap-icon://ti/arrows-exchange" : "sap-icon://ti/circle-check",
+      } satisfies AllRecordRow;
+    });
+    const model = this.getLedgerModel();
+    model.setProperty("/allRecords", rows);
+    this.onAllFilter();
   }
 
   /* ------------------------------ Browsing the ledger ------------------------------ */
@@ -533,6 +602,7 @@ export default class Main extends Controller {
       });
       await this.loadSince(bundle);
       await this.loadBook(bundle);
+      await this.loadAllRecords(bundle, all);
     } catch (error) {
       Log.error("loading the ledger failed", String(error));
       MessageBox.error(t(await this.getBundle(), "loadError"));

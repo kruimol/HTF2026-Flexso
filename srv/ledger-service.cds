@@ -53,6 +53,21 @@ service LedgerService @(path: 'ledger', impl: 'srv/ledger-service') {
     message     : String;
   }
 
+  /** One record the ledger follows: what it says now and how much changed since the seal. */
+  type RecordInfo {
+    entityName : String;
+    register   : String;
+    recordID   : UUID;
+    recordLabel: String;
+    summary    : String;   // the current values in words, e.g. "doorstroming 142 van max. 150 L/min · druk 58 PSI"
+    changedBy  : String;
+    changedAt  : Timestamp;
+    pages      : Integer;  // pages about this record in the ledger since the seal
+  }
+
+  /** Every record the ledger follows (the sealed records). */
+  function records() returns many RecordInfo;
+
   /** Every suspicious record, worst moment first. */
   function findings() returns many Finding;
 
