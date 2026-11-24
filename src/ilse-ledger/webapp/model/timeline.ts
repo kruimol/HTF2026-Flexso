@@ -96,7 +96,7 @@ export function monthKey(iso: string): string {
  * The time axis: one dot per write, stacked when they fall on the same day; grey = normal,
  * orange = suspicious record, red = system account / no name / night / outside the apps.
  */
-export function buildTimelineSvg(events: readonly TimelineEvent[], now: Date, texts: TimelineTexts, fromIso?: string): string {
+export function buildTimelineSvg(events: readonly TimelineEvent[], now: Date, texts: TimelineTexts, fromIso?: string, toIso?: string): string {
   const width = 1200;
   const height = 300;
   const left = 40;
@@ -107,14 +107,15 @@ export function buildTimelineSvg(events: readonly TimelineEvent[], now: Date, te
   const maxStack = 10;
   // A zoomed view (e.g. the last 30 days) only shows what falls inside it.
   const from = fromIso ? Date.parse(fromIso) : null;
-  const shown = from === null ? events : events.filter((event) => Date.parse(event.at) >= from);
+  const to = toIso ? Date.parse(toIso) : null;
+  const shown = events.filter((event) => (from === null || Date.parse(event.at) >= from) && (to === null || Date.parse(event.at) <= to));
   if (shown.length === 0) return "";
   events = shown;
 
   const times = events.map((event) => Date.parse(event.at)).filter(Number.isFinite);
   const first = new Date(Math.min(...times));
   const start = from ?? Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), 1);
-  const end = Math.max(now.getTime(), ...times);
+  const end = to ?? Math.max(now.getTime(), ...times);
   const x = (t: number): number => left + ((t - start) / Math.max(1, end - start)) * (right - left);
 
   // Ticks: per month for the whole period, per week (with the day) for a short period.
@@ -164,7 +165,7 @@ export function buildTimelineSvg(events: readonly TimelineEvent[], now: Date, te
       `<text class="tlLegend" x="${left + 22 + i * 260}" y="${height - 13}">${esc(label)}</text>`)
     .join("");
 
-  const nowX = x(now.getTime());
+  const nowX = x(Math.min(now.getTime(), end));
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="${esc(texts.title)}">` +
     `<line class="tlAxis" x1="${left}" y1="${base}" x2="${right}" y2="${base}"/>${ticks}` +
     `<line class="tlNow" x1="${n(nowX)}" y1="50" x2="${n(nowX)}" y2="${base}"/><text class="tlNowText" x="${n(nowX - 4)}" y="62" text-anchor="end">${esc(texts.now)}</text>` +

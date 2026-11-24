@@ -56,6 +56,34 @@
                     <!-- ====================== Timeline: when did it begin, all at once or bit by bit? ====================== -->
                     <IconTabFilter id="tabTimeline" icon="sap-icon://ti/timeline-event" text="{i18n>tabTimeline}" key="timeline">
                         <Text id="timelineIntro" text="{i18n>timelineIntro}" class="ilseIntro sapUiSmallMarginBottom" />
+                        <!-- Ilse's filters: the kinds of suspicion apart, and when (especially mid-November) -->
+                        <VBox id="timelineFilters" class="ilseNoPrint sapUiSmallMarginBottom">
+                            <Label id="tlKindLabel" text="{i18n>tlKind}" labelFor="tlKind" />
+                            <SegmentedButton id="tlKind" selectedKey="{ledger>/timeline/category}" selectionChange=".onTimelineFilter" class="sapUiTinyMarginBottom">
+                                <items>
+                                    <SegmentedButtonItem id="tlKindAll" key="all" text="{i18n>tlKindAll} ({ledger>/timeline/counts/all})" />
+                                    <SegmentedButtonItem id="tlKindSuspect" key="suspect" icon="sap-icon://ti/alert-triangle" text="{i18n>tlKindSuspect} ({ledger>/timeline/counts/suspect})" />
+                                    <SegmentedButtonItem id="tlKindNight" key="night" icon="sap-icon://ti/moon" text="{i18n>tlKindNight} ({ledger>/timeline/counts/night})" />
+                                    <SegmentedButtonItem id="tlKindNoPerson" key="noPerson" icon="sap-icon://ti/robot" text="{i18n>tlKindNoPerson} ({ledger>/timeline/counts/noPerson})" />
+                                    <SegmentedButtonItem id="tlKindImpossible" key="impossible" icon="sap-icon://ti/math-off" text="{i18n>tlKindImpossible} ({ledger>/timeline/counts/impossible})" />
+                                </items>
+                            </SegmentedButton>
+                            <Label id="tlPeriodLabel" text="{i18n>tlPeriod}" labelFor="tlPeriod" />
+                            <HBox id="tlPeriodBox" alignItems="Center" wrap="Wrap">
+                                <SegmentedButton id="tlPeriod" selectedKey="{ledger>/timeline/period}" selectionChange=".onTimelineFilter" class="sapUiSmallMarginEnd">
+                                    <items>
+                                        <SegmentedButtonItem id="tlPeriodAll" key="all" text="{i18n>tlPeriodAll}" />
+                                        <SegmentedButtonItem id="tlPeriodRecent" key="recent" text="{i18n>tlPeriodRecent}" />
+                                        <SegmentedButtonItem id="tlPeriodMid" key="midNovember" text="{i18n>tlPeriodMid}" />
+                                        <SegmentedButtonItem id="tlPeriodCustom" key="custom" icon="sap-icon://ti/calendar" text="{i18n>tlPeriodCustom}" />
+                                    </items>
+                                </SegmentedButton>
+                                <DateRangeSelection id="tlRange" width="16rem" displayFormat="dd/MM/yyyy"
+                                    dateValue="{ledger>/timeline/fromDate}" secondDateValue="{ledger>/timeline/toDate}"
+                                    visible="{= ${ledger>/timeline/period} === 'custom' }" change=".onTimelineFilter" />
+                            </HBox>
+                            <Text id="tlPeriodText" text="{ledger>/timeline/periodText}" visible="{= !!${ledger>/timeline/periodText} }" class="ilseQuote sapUiTinyMarginTop" />
+                        </VBox>
                         <VBox id="timelineAnswers" class="ilseAnswers sapUiSmallMarginBottom">
                             <Title id="tlBeganTitle" text="{i18n>tlBeganQ}" level="H3" class="mrHeading" />
                             <Text id="tlBeganText" text="{ledger>/timeline/began}" class="sapUiTinyMarginBottom" />
@@ -63,13 +91,10 @@
                             <Text id="tlPaceText" text="{ledger>/timeline/pace}" />
                             <Text id="tlBiggestText" text="{ledger>/timeline/biggest}" visible="{= !!${ledger>/timeline/biggest} }" class="sapUiTinyMarginTop" />
                         </VBox>
-                        <Title id="tlWholeTitle" text="{i18n>tlWhole}" level="H4" class="mrHeading" />
+                        <Title id="tlWholeTitle" text="{= ${ledger>/timeline/periodText} ? ${i18n>tlChosen} : ${i18n>tlWhole} }" level="H4" class="mrHeading" />
                         <core:HTML id="timelineChart" content="{ledger>/timeline/svg}" sanitizeContent="false" />
-                        <Title id="tlRecentTitle" text="{i18n>tlRecent}" level="H4" class="mrHeading" />
+                        <Title id="tlRecentTitle" text="{i18n>tlRecent}" level="H4" class="mrHeading" visible="{= !!${ledger>/timeline/svgRecent} }" />
                         <core:HTML id="timelineRecent" content="{ledger>/timeline/svgRecent}" sanitizeContent="false" />
-                        <OverflowToolbar id="timelineToolbar" design="Transparent" class="ilseNoPrint">
-                            <CheckBox id="timelineSuspectOnly" text="{i18n>tlSuspectOnly}" selected="{ledger>/timeline/suspectOnly}" select=".onTimelineFilter" />
-                        </OverflowToolbar>
                         <List id="timelineList" backgroundDesign="Transparent" noDataText="{i18n>noTimeline}" showSeparators="Inner"
                             items="{ path: 'ledger>/timeline/view', sorter: { path: 'month', group: true }, templateShareable: false }">
                             <CustomListItem id="timelineItem" highlight="{= ${ledger>level} === 'alarm' ? 'Error' : (${ledger>level} === 'suspect' ? 'Warning' : 'None') }">

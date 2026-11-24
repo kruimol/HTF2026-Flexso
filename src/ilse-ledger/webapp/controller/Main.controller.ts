@@ -78,12 +78,23 @@ function isNight(iso: string): boolean {
   return Number.isFinite(hour) && hour < 4;
 }
 
-/** An event on the timeline, as the list shows it. */
+/** Checks about values that simply cannot be right ("dingen die gewoon niet kunnen kloppen"). */
+const IMPOSSIBLE_RULES = new Set(["sourcesDisagree", "overCapacity", "impossibleValue", "futureDate", "beforeRegister"]);
+
+/** An event on the timeline, as the list shows it, with the kinds of suspicion Ilse filters on. */
 interface TimelineRow extends TimelineEvent {
   time: string;
   month: string;
   byText: string;
+  night: boolean;
+  noPerson: boolean;
+  impossible: boolean;
 }
+
+type TimelineCategory = "all" | "suspect" | "night" | "noPerson" | "impossible";
+type TimelinePeriod = "all" | "recent" | "midNovember" | "custom";
+
+const DAY_MS = 86_400_000;
 
 interface RecordInfoData {
   entityName: string;
@@ -260,7 +271,10 @@ export default class Main extends Controller {
         mark: { title: "", entityName: "", recordID: "", recordLabel: "", reasons: [], reason: "" },
         lastSeen: readLastSeen(),
         tab: "timeline",
-        timeline: { all: [], view: [], svg: "", svgRecent: "", suspectOnly: false, began: "", pace: "", biggest: "" },
+        timeline: {
+          all: [], view: [], svg: "", svgRecent: "", began: "", pace: "", biggest: "",
+          category: "all", period: "all", fromDate: null, toDate: null, counts: {}, periodText: "",
+        },
         book: {
           pages: [], view: [], start: -1, register: "", search: "", outsideOnly: false, newOnly: false,
           recordID: "", recordText: "", registers: [], position: "", hasPrev: false, hasNext: false, goto: "",
@@ -331,10 +345,77 @@ export default class Main extends Controller {
 
   /* ------------------------------ The timeline ------------------------------ */
 
+  /** Any filter changed: what kind of suspicion, and which period. */
   public onTimelineFilter(): void {
+    if (this.bundle) this.renderTimeline(this.bundle);
+  }
+
+  /** The period as [from, to] in village time (UTC); null = open. */
+  private timelinePeriod(): [string | null, string | null] {
     const model = this.getLedgerModel();
-    const all = model.getProperty("/timeline/all") as TimelineRow[];
-    model.setProperty("/timeline/view", model.getProperty("/timeline/suspectOnly") ? all.filter((row) => row.level !== "normal") : all);
+    const period = model.getProperty("/timeline/period") as TimelinePeriod;
+    const now = new Date();
+    if (period === "recent") return [new Date(now.getTime() - 30 * DAY_MS).toISOString(), null];
+    if (period === "midNovember") {
+      // Ilse: "zeker rond midden november" — 10 to 20 November of this year.
+      const year = now.getUTCFullYear();
+      return [new Date(Date.UTC(year, 10, 10)).toISOString(), new Date(Date.UTC(year, 10, 20, 23, 59, 59)).toISOString()];
+    }
+    if (period === "custom") {
+      const from = model.getProperty("/timeline/fromDate") as Date | null;
+      const to = model.getProperty("/timeline/toDate") as Date | null;
+      // The picker gives local midnight; read the chosen calendar days as village days.
+      const day = (date: Date | null, end: boolean): string | null => date
+        ? new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), end ? 23 : 0, end ? 59 : 0, end ? 59 : 0)).toISOString()
+        : null;
+      return [day(from, false), day(to ?? from, true)];
+    }
+    return [null, null];
+  }
+
+  /** Applies the filters to the list, the two time axes and the answers on top. */
+  private renderTimeline(bundle: ResourceBundle): void {
+    const model = this.getLedgerModel();
+    const all = (model.getProperty("/timeline/all") as TimelineRow[] | null) ?? [];
+    const category = model.getProperty("/timeline/category") as TimelineCategory;
+    const [from, to] = this.timelinePeriod();
+    const inPeriod = (row: TimelineRow): boolean => (!from || row.at >= from) && (!to || row.at <= to);
+    const ofKind: Record<TimelineCategory, (row: TimelineRow) => boolean> = {
+      all: () => true,
+      suspect: (row) => row.level !== "normal",
+      night: (row) => row.night,
+      noPerson: (row) => row.noPerson,
+      impossible: (row) => row.impossible,
+    };
+    const periodRows = all.filter(inPeriod);
+    model.setProperty("/timeline/counts", Object.fromEntries(
+      (Object.keys(ofKind) as TimelineCategory[]).map((key) => [key, periodRows.filter(ofKind[key]).length])));
+    const rows = periodRows.filter(ofKind[category]);
+    model.setProperty("/timeline/view", rows);
+    model.setProperty("/timeline/periodText", from || to
+      ? t(bundle, "tlPeriodShown", [from ? villageTime(from).slice(0, 10) : "…", to ? villageTime(to).slice(0, 10) : t(bundle, "tlNow")])
+      : "");
+
+    const texts = {
+      title: t(bundle, "tlTitle"), normal: t(bundle, "tlNormal"), suspect: t(bundle, "tlSuspect"), alarm: t(bundle, "tlAlarm"), now: t(bundle, "tlNow"),
+    };
+    const now = new Date();
+    const chart = (svg: string): string => (svg ? `<div class="ilseTimeline">${svg}</div>` : `<div class="ilseTimeline"></div>`);
+    model.setProperty("/timeline/svg", chart(buildTimelineSvg(rows, now, texts, from ?? undefined, to ?? undefined)));
+    // The close-up of the last 30 days only adds something when the whole period is shown.
+    model.setProperty("/timeline/svgRecent", from || to ? "" : chart(buildTimelineSvg(rows, now, texts, new Date(now.getTime() - 30 * DAY_MS).toISOString())));
+
+    const summary = summarize(rows.map((row) => ({ ...row, by: row.byText })));
+    const first = summary.first;
+    model.setProperty("/timeline/began", first
+      ? t(bundle, "tlBegan", [villageTime(first.at), first.register, first.recordLabel, first.what.toLowerCase(), first.by])
+      : t(bundle, "tlBeganNone"));
+    model.setProperty("/timeline/pace", !first || !summary.last ? "" : summary.days === 1
+      ? t(bundle, "tlOneDay", [summary.suspectCount, villageTime(first.at).slice(0, 10)])
+      : t(bundle, "tlPace", [summary.suspectCount, summary.days, villageTime(first.at).slice(0, 10), villageTime(summary.last.at).slice(0, 10)]));
+    model.setProperty("/timeline/biggest", summary.biggest && summary.biggest.count > 1
+      ? t(bundle, "tlBiggest", [villageTime(summary.biggest.at), summary.biggest.count, summary.biggest.by, summary.biggest.registers])
+      : "");
   }
 
   public onTimelineRecord(event: { getSource(): unknown }): void {
@@ -358,6 +439,7 @@ export default class Main extends Controller {
       const finding = findings.get(`${record.entityName}|${record.recordID}`);
       const suspect = Boolean(finding && !finding.askOnly);
       const reasons = suspect ? (finding?.reasons ?? []).filter((r) => r.state !== "Information").map((r) => r.ruleText).join(", ") : "";
+      const impossible = (finding?.reasons ?? []).some((r) => IMPOSSIBLE_RULES.has(r.rule));
       const touches = [{ at: record.createdAt, by: record.createdBy, what: t(bundle, "tlCreated") }];
       if (record.changedAt && record.changedAt !== record.createdAt) {
         touches.push({ at: record.changedAt, by: record.changedBy, what: t(bundle, "tlModified") });
@@ -370,7 +452,9 @@ export default class Main extends Controller {
           at: touch.at, what: touch.what, entityName: record.entityName, register: record.register,
           recordID: record.recordID, recordLabel: record.recordLabel, by: touch.by,
           level, reasons: level !== "normal" ? reasons : "",
-        });
+          // The impossible value is in the record now: it came with its last write.
+          impossible: impossible && latest,
+        } as TimelineEvent & { impossible: boolean });
       });
     }
 
@@ -392,33 +476,22 @@ export default class Main extends Controller {
         by: page.changedBy,
         level: levelOf(page.changedBy, page.at, group.some((p) => p.outsideApps), suspect),
         reasons: "",
-      });
+        outside: group.some((p) => p.outsideApps),
+      } as TimelineEvent & { outside: boolean });
     }
 
     events.sort((a, b) => a.at.localeCompare(b.at));
-    const rows: TimelineRow[] = events.map((event) => ({
-      ...event, time: villageTime(event.at), month: monthKey(event.at), byText: personName(event.by),
-    }));
-    const summary = summarize(rows.map((row) => ({ ...row, by: row.byText })));
-    const first = summary.first;
+    const rows: TimelineRow[] = events.map((event) => {
+      const extra = event as TimelineEvent & { impossible?: boolean; outside?: boolean };
+      return {
+        ...event, time: villageTime(event.at), month: monthKey(event.at), byText: personName(event.by),
+        night: isNight(event.at),
+        noPerson: ALARM_USERS.has(event.by) || Boolean(extra.outside),
+        impossible: Boolean(extra.impossible),
+      };
+    });
     model.setProperty("/timeline/all", rows);
-    const texts = {
-      title: t(bundle, "tlTitle"), normal: t(bundle, "tlNormal"), suspect: t(bundle, "tlSuspect"), alarm: t(bundle, "tlAlarm"), now: t(bundle, "tlNow"),
-    };
-    const now = new Date();
-    const monthAgo = new Date(now.getTime() - 30 * 86_400_000).toISOString();
-    model.setProperty("/timeline/svg", `<div class="ilseTimeline">${buildTimelineSvg(rows, now, texts)}</div>`);
-    model.setProperty("/timeline/svgRecent", `<div class="ilseTimeline">${buildTimelineSvg(rows, now, texts, monthAgo)}</div>`);
-    model.setProperty("/timeline/began", first
-      ? t(bundle, "tlBegan", [villageTime(first.at), first.register, first.recordLabel, first.what.toLowerCase(), first.by])
-      : t(bundle, "tlBeganNone"));
-    model.setProperty("/timeline/pace", !first || !summary.last ? "" : summary.days === 1
-      ? t(bundle, "tlOneDay", [summary.suspectCount, villageTime(first.at).slice(0, 10)])
-      : t(bundle, "tlPace", [summary.suspectCount, summary.days, villageTime(first.at).slice(0, 10), villageTime(summary.last.at).slice(0, 10)]));
-    model.setProperty("/timeline/biggest", summary.biggest && summary.biggest.count > 1
-      ? t(bundle, "tlBiggest", [villageTime(summary.biggest.at), summary.biggest.count, summary.biggest.by, summary.biggest.registers])
-      : "");
-    this.onTimelineFilter();
+    this.renderTimeline(bundle);
   }
 
   /* ------------------------------ Browsing the ledger ------------------------------ */
