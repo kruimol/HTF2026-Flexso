@@ -12,6 +12,9 @@ service CouncilService @(path: 'council', impl: 'srv/council-service') {
   @readonly
   entity CouncilDecisions as projection on db.CouncilDecisions;
 
+  @readonly
+  entity CouncilPlanLog   as projection on db.CouncilPlanLog;
+
   /** One part of the village: in order or not, and why. */
   type Area {
     areaKey        : String;
@@ -58,6 +61,7 @@ service CouncilService @(path: 'council', impl: 'srv/council-service') {
     doubtKind       : String;       // ilse | data (impossible value) | waterData (Maren's data check) | noReading
     trustReason     : String;
     planned         : Boolean;      // fits in the budget, most urgent first
+    planStatus      : String;       // locked week: reserved | spent | new (came up after the plan was locked) | ''
   }
 
   /** A pipe on the village map, coloured by its state. */
@@ -72,6 +76,11 @@ service CouncilService @(path: 'council', impl: 'srv/council-service') {
     budgetTotal   : Integer;
     budgetPlanned : Integer;
     budgetLeft    : Integer;
+    locked        : Boolean;        // the council locked this week's plan
+    lockedAt      : Timestamp;
+    budgetSpent   : Integer;        // work done: gone for good
+    budgetReserved : Integer;       // set aside, work not done yet
+    budgetFree    : Integer;
     areas         : many Area;
     problems      : many Problem;
     pipes         : many PipeLine;
@@ -88,6 +97,9 @@ service CouncilService @(path: 'council', impl: 'srv/council-service') {
     cost       : Integer;
   }
 
-  /** The council agrees on its plan for the week (replaces an earlier plan of the same week). */
-  action decide(weekStart : Date, entries : many DecisionEntry, note : String) returns Boolean;
+  /**
+   * The first call of a week locks the plan: the money of every line is reserved. After that the plan
+   * only changes with a reason (logged in CouncilPlanLog), and spent money cannot come back.
+   */
+  action decide(weekStart : Date, entries : many DecisionEntry, reason : String) returns Boolean;
 }

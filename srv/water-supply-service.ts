@@ -129,7 +129,7 @@ async function morningRound(): Promise<MorningRound> {
     // The council's plan of this week (The Council's Monday): which repairs it pays for.
     SELECT.from('oakhaven.curse.CouncilDecisions')
       .columns<{ problemKey: string }>('problemKey')
-      .where({ weekStart: weekStartOf(now), kind: 'water' }),
+      .where({ weekStart: weekStartOf(now), kind: 'water', status: { in: ['reserved', 'spent'] } }),
   ]);
   const round = planMorningRound(pipes, landmarks, sensors, now, repairs, reports);
   const funded = new Set(decisions.map((decision) => decision.problemKey));

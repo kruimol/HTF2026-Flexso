@@ -191,7 +191,11 @@ entity RecordSeals {
 // The Council's Monday — what the village council decided to pay for, per week
 // ---------------------------------------------------------------------------
 
-/** One line of the council's weekly plan: a problem it decided to spend money on. */
+/**
+ * One line of the council's weekly plan: money for one problem.
+ * reserved → spent (automatically, when Maren logs the repair or Tobin receives the delivery) · released (taken out
+ * of the plan, with a reason). Only reserved and spent lines count against the week's budget.
+ */
 entity CouncilDecisions : cuid, managed {
   weekStart  : Date;                    // the Monday of the meeting
   problemKey : String;                  // water:<pipeID> | food:<itemID>
@@ -199,6 +203,25 @@ entity CouncilDecisions : cuid, managed {
   title      : String;                  // what it was about, e.g. "North Mill House → North Residential Area"
   cost       : Integer;                 // crowns out of the weekly budget
   note       : String(500);             // optional note of the council
+  status     : String default 'reserved'; // reserved | spent | released
+  spentAt    : Timestamp;               // when the work was done (repair logged / delivery received)
+  spentBy    : String;                  // who did it, e.g. "Maren Holt"
+}
+
+/** A week the council locked its plan: from then on the plan only changes with a reason. */
+entity CouncilWeeks {
+  key weekStart : Date;
+  lockedAt      : Timestamp;
+  seenKeys      : LargeString;          // problems on the page when the plan was locked: later ones are "new since Monday"
+}
+
+/** The log of the plan: locked, changed (with the reason), money spent. Nothing is ever deleted from it. */
+entity CouncilPlanLog : cuid, managed {
+  weekStart  : Date;
+  at         : Timestamp;
+  action     : String;                  // locked | changed | spent
+  summary    : String(1000);            // what changed, in plain words
+  reason     : String(1000);            // the council's reason (for a change)
 }
 
 // ---------------------------------------------------------------------------

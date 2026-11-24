@@ -9,6 +9,9 @@ import type ResourceModel from "sap/ui/model/resource/ResourceModel";
 import type ODataModel from "sap/ui/model/odata/v4/ODataModel";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import Sorter from "sap/ui/model/Sorter";
+import Filter from "sap/ui/model/Filter";
+import FilterOperator from "sap/ui/model/FilterOperator";
+import type Dialog from "sap/m/Dialog";
 import { buildMapSvg } from "../model/villageMap";
 
 /** Text from the i18n bundle; the key itself when it is missing. */
@@ -62,6 +65,7 @@ interface ProblemData {
   doubtKind: string;
   trustReason: string;
   planned: boolean;
+  planStatus: string | null; // locked week: reserved | spent | new | ''
 }
 
 interface VillageWeekData {
@@ -69,17 +73,36 @@ interface VillageWeekData {
   budgetTotal: number;
   budgetPlanned: number;
   budgetLeft: number;
+  locked: boolean;
+  lockedAt: string | null;
+  budgetSpent: number;
+  budgetReserved: number;
+  budgetFree: number;
   areas: AreaData[];
   problems: ProblemData[];
   pipes: Array<{ pipeID: string; status: string; mapPath: string }>;
 }
 
+/** One line of a plan, as `CouncilDecisions` sends it. */
 interface DecisionData {
+  ID: string;
   weekStart: string;
   problemKey: string;
   kind: string;
   title: string;
   cost: number;
+  status: string; // reserved | spent | released
+  spentAt: string | null;
+  spentBy: string | null;
+  note: string | null;
+}
+
+/** One entry of the plan's log. */
+interface PlanLogData {
+  at: string;
+  action: string; // locked | changed | spent
+  summary: string;
+  reason: string | null;
 }
 
 /** A problem row of the page: the server data plus display texts; `planned` is the checkbox. */
@@ -91,7 +114,25 @@ interface ProblemRow extends ProblemData {
   why: string;
   doubt: string;
   actionText: string;
+  planText: string;
+  planState: ValueState;
+  planIcon: string;
 }
+
+/** What a plan line's money is doing: text, state and icon. */
+interface MoneyStatus {
+  moneyText: string;
+  moneyState: ValueState;
+  moneyIcon: string;
+}
+
+const MONEY_ICON = {
+  reserved: "sap-icon://ti/lock",
+  spent: "sap-icon://ti/coins",
+  released: "sap-icon://ti/arrow-back-up",
+  new: "sap-icon://ti/bell",
+  none: "sap-icon://ti/minus",
+};
 
 const STATE: Readonly<Record<string, ValueState>> = {
   ok: ValueState.Success,
@@ -117,6 +158,7 @@ const AREA_TEXT: Readonly<Record<string, string>> = {
 
 const longDay = DateFormat.getDateInstance({ pattern: "EEEE d MMMM" });
 const shortDay = DateFormat.getDateInstance({ pattern: "EEEE d MMM" });
+const dateTime = DateFormat.getDateTimeInstance({ pattern: "EEEE d MMM, HH:mm" });
 
 function parseIsoDate(iso: string): Date {
   const [year, month, day] = iso.split("-").map(Number);
@@ -127,11 +169,14 @@ function parseIsoDate(iso: string): Date {
  * The one page of The Council's Monday. Everything comes from the OData function `villageWeek()`
  * (srv/council-service.ts); this controller turns it into display rows with texts from i18n in the
  * "council" view model, keeps the budget up to date while the council ticks problems in or out,
- * and stores the plan with the action `decide`.
+ * and locks or changes the plan with the action `decide` (a change of a locked plan asks the reason).
  *
  * @namespace rowan.council.controller
  */
 export default class Main extends Controller {
+  /** Asks the reason of a change to a locked plan; destroyed in `onExit`. */
+  private reasonDialog?: Dialog;
+
   public onInit(): void {
     const model = new JSONModel({
       busy: true,
@@ -142,11 +187,31 @@ export default class Main extends Controller {
       problems: [],
       areas: [],
       mapSvg: "<div></div>",
-      budget: { total: 0, planned: 0, left: 0, percent: 0, barText: "", leftText: "", state: ValueState.None, unfunded: [] },
+      budget: {
+        total: 0,
+        spent: 0,
+        reserved: 0,
+        left: 0,
+        percent: 0,
+        barText: "",
+        leftText: "",
+        state: ValueState.None,
+        unfunded: [],
+      },
+      locked: false,
+      lockedText: "",
+      editing: false,
+      reason: "",
+      planLines: [],
+      planLog: [],
       decisions: [],
     });
     this.getView()?.setModel(model, "council");
     void this.load();
+  }
+
+  public onExit(): void {
+    this.reasonDialog?.destroy();
   }
 
   public onRefresh(): void {
@@ -158,23 +223,64 @@ export default class Main extends Controller {
     this.updateBudget(await this.getBundle());
   }
 
+  /** Monday evening: lock the plan. All money in it is reserved from now on. */
   public async onSaveDecision(): Promise<void> {
+    await this.sendPlan("", "decisionSaved");
+  }
+
+  /** A locked plan only changes on purpose: open it for changes (spent lines stay locked). */
+  public onEditPlan(): void {
+    this.getModel().setProperty("/editing", true);
+  }
+
+  public onCancelEdit(): void {
+    this.getModel().setProperty("/editing", false);
+    void this.load();
+  }
+
+  /** Save a change of a locked plan: first ask the reason, it goes into the plan's log. */
+  public async onSaveChange(): Promise<void> {
+    this.getModel().setProperty("/reason", "");
+    this.reasonDialog ??= (await this.loadFragment({ name: "rowan.council.view.ReasonDialog" })) as Dialog;
+    this.reasonDialog.open();
+  }
+
+  public onCancelReason(): void {
+    this.reasonDialog?.close();
+  }
+
+  public async onConfirmChange(): Promise<void> {
+    const reason = (this.getModel().getProperty("/reason") as string).trim();
+    if (!reason) return;
+    this.reasonDialog?.close();
+    await this.sendPlan(reason, "changeSaved");
+  }
+
+  /** Sends the ticked plan to `decide`: locks it (no reason) or changes the locked plan (with a reason). */
+  private async sendPlan(reason: string, toastKey: string): Promise<void> {
     const model = this.getModel();
     const bundle = await this.getBundle();
     const problems = model.getProperty("/problems") as ProblemRow[];
-    const binding = this.getODataModel().bindContext("/decide(...)");
-    binding.setParameter("weekStart", model.getProperty("/weekStart") as string);
-    binding.setParameter(
-      "entries",
-      problems
+    const shownKeys = new Set(problems.map((problem) => problem.problemKey));
+    // Lines of the plan that are no longer on the list (e.g. a pipe Maren repaired) stay as they are.
+    const hidden = (model.getProperty("/planLines") as DecisionData[]).filter(
+      (line) => line.status !== "released" && !shownKeys.has(line.problemKey),
+    );
+    const entries = [
+      ...problems
         .filter((problem) => problem.planned)
         .map((problem) => ({ problemKey: problem.problemKey, kind: problem.kind, title: problem.name, cost: problem.cost })),
-    );
-    binding.setParameter("note", "");
+      ...hidden.map((line) => ({ problemKey: line.problemKey, kind: line.kind, title: line.title, cost: line.cost })),
+    ];
+    const binding = this.getODataModel().bindContext("/decide(...)");
+    binding.setParameter("weekStart", model.getProperty("/weekStart") as string);
+    binding.setParameter("entries", entries);
+    binding.setParameter("reason", reason);
     model.setProperty("/busy", true);
     try {
       await binding.invoke();
-      MessageToast.show(t(bundle, "decisionSaved"));
+      MessageToast.show(t(bundle, toastKey));
+      model.setProperty("/editing", false);
       await this.load();
     } catch (error) {
       Log.error("decide failed", String(error));
@@ -191,18 +297,22 @@ export default class Main extends Controller {
       const bundle = await this.getBundle();
       const week = (await this.getODataModel().bindContext("/villageWeek()").requestObject()) as VillageWeekData;
       const decisions = await this.loadDecisions();
+      const thisWeek = decisions.filter((decision) => decision.weekStart === week.weekStart);
 
-      // A plan already stored for this week wins over the proposal of the server.
-      const savedThisWeek = decisions.filter((decision) => decision.weekStart === week.weekStart);
-      const savedKeys = new Set(savedThisWeek.map((decision) => decision.problemKey));
-
-      const problems = week.problems.map((problem, index) =>
-        this.toProblemRow(problem, index + 1, savedThisWeek.length > 0 ? savedKeys.has(problem.problemKey) : problem.planned, bundle),
-      );
+      // The server knows the plan: the proposal before Monday's lock, the locked plan after it.
+      const problems = week.problems.map((problem, index) => this.toProblemRow(problem, index + 1, bundle));
       model.setProperty("/weekStart", week.weekStart);
       model.setProperty("/subtitle", t(bundle, "pageSubtitle", [longDay.format(parseIsoDate(week.weekStart))]));
+      model.setProperty("/locked", week.locked);
+      model.setProperty(
+        "/lockedText",
+        week.locked && week.lockedAt ? t(bundle, "lockedAt", [dateTime.format(new Date(week.lockedAt))]) : "",
+      );
       model.setProperty("/budget/total", week.budgetTotal);
+      model.setProperty("/budget/spent", week.budgetSpent);
       model.setProperty("/problems", problems);
+      model.setProperty("/planLines", thisWeek.map((line) => ({ ...line, ...this.moneyOf(line, bundle) })));
+      model.setProperty("/planLog", await this.loadPlanLog(week.weekStart));
       model.setProperty("/areas", week.areas.map((area) => this.toAreaRow(area, bundle)));
       model.setProperty(
         "/mapSvg",
@@ -212,7 +322,9 @@ export default class Main extends Controller {
       const repairedKeys = new Set(week.pipes.filter((pipe) => pipe.status === "repaired").map((pipe) => `water:${pipe.pipeID}`));
       model.setProperty(
         "/decisions",
-        decisions.map((decision) => this.toDecisionRow(decision, week.weekStart, openKeys, repairedKeys, bundle)),
+        decisions
+          .filter((decision) => decision.weekStart !== week.weekStart && decision.status !== "released")
+          .map((decision) => this.toDecisionRow(decision, openKeys, repairedKeys, bundle)),
       );
       this.updateBudget(bundle);
       model.setProperty(
@@ -233,28 +345,72 @@ export default class Main extends Controller {
     return contexts.map((context) => context.getObject() as DecisionData);
   }
 
-  /** Budget bar, what is left and what does not fit, from the ticked problems. Also refreshes the summary. */
+  private async loadPlanLog(weekStart: string): Promise<Array<PlanLogData & { atText: string; icon: string }>> {
+    const list = this.getODataModel().bindList("/CouncilPlanLog", undefined, [new Sorter("at", true)], [
+      new Filter("weekStart", FilterOperator.EQ, weekStart),
+    ]);
+    const contexts = await list.requestContexts(0, 100);
+    return contexts.map((context) => {
+      const entry = context.getObject() as PlanLogData;
+      const icon = entry.action === "spent" ? MONEY_ICON.spent : entry.action === "changed" ? "sap-icon://ti/pencil" : MONEY_ICON.reserved;
+      return { ...entry, atText: dateTime.format(new Date(entry.at)), icon };
+    });
+  }
+
+  /**
+   * Budget bar, what is left and what does not fit. Also refreshes the summary.
+   * - not locked: the ticked problems are the proposal;
+   * - locked: spent money (work done) + reserved money (the ticked lines that are not spent yet, and
+   *   plan lines no longer on the list) — while changing the plan, the ticks count.
+   */
   private updateBudget(bundle: ResourceBundle): void {
     const model = this.getModel();
     const total = model.getProperty("/budget/total") as number;
+    const locked = model.getProperty("/locked") as boolean;
     const problems = model.getProperty("/problems") as ProblemRow[];
-    const planned = problems.filter((problem) => problem.planned).reduce((sum, problem) => sum + problem.cost, 0);
-    const left = total - planned;
+    const shownKeys = new Set(problems.map((problem) => problem.problemKey));
+    const lines = model.getProperty("/planLines") as DecisionData[];
+
+    const spent = locked ? lines.filter((line) => line.status === "spent").reduce((sum, line) => sum + line.cost, 0) : 0;
+    const hiddenReserved = locked
+      ? lines.filter((line) => line.status === "reserved" && !shownKeys.has(line.problemKey)).reduce((sum, line) => sum + line.cost, 0)
+      : 0;
+    const reserved =
+      hiddenReserved +
+      problems.filter((problem) => problem.planned && problem.planStatus !== "spent").reduce((sum, problem) => sum + problem.cost, 0);
+    const left = total - spent - reserved;
     const state = left < 0 ? ValueState.Error : left < total * 0.2 ? ValueState.Warning : ValueState.Success;
     const unfunded = problems
       .filter((problem) => !problem.planned)
       .map((problem) => ({
-        text: t(bundle, "unfundedLine", [problem.name, problem.tierText, problem.cost]),
-        icon: problem.icon,
+        text: t(bundle, problem.planStatus === "new" ? "unfundedNewLine" : "unfundedLine", [problem.name, problem.tierText, problem.cost]),
+        icon: problem.planStatus === "new" ? MONEY_ICON.new : problem.icon,
       }));
-    model.setProperty("/budget/planned", planned);
+    model.setProperty("/budget/spent", spent);
+    model.setProperty("/budget/reserved", reserved);
     model.setProperty("/budget/left", left);
-    model.setProperty("/budget/percent", total > 0 ? Math.min(100, Math.round((planned / total) * 100)) : 0);
-    model.setProperty("/budget/barText", t(bundle, "budgetBar", [planned, total]));
+    model.setProperty("/budget/percent", total > 0 ? Math.min(100, Math.round(((spent + reserved) / total) * 100)) : 0);
+    model.setProperty(
+      "/budget/barText",
+      locked ? t(bundle, "budgetBarLocked", [spent, reserved, Math.max(left, 0)]) : t(bundle, "budgetBar", [reserved, total]),
+    );
     model.setProperty("/budget/leftText", left < 0 ? t(bundle, "budgetOver", [-left]) : t(bundle, "budgetLeft", [left]));
     model.setProperty("/budget/state", state);
     model.setProperty("/budget/unfunded", unfunded);
     this.updateSummary(bundle);
+  }
+
+  /** Reserved, spent or released: what the money of one plan line is doing. */
+  private moneyOf(line: DecisionData, bundle: ResourceBundle): MoneyStatus {
+    if (line.status === "spent") {
+      const when = line.spentAt ? dateTime.format(new Date(line.spentAt)) : "";
+      const key = line.kind === "food" ? "moneySpentFood" : "moneySpentWater";
+      return { moneyText: t(bundle, key, [when, line.spentBy ?? "?"]), moneyState: ValueState.Success, moneyIcon: MONEY_ICON.spent };
+    }
+    if (line.status === "released") {
+      return { moneyText: t(bundle, "moneyReleased", [line.note ?? ""]), moneyState: ValueState.None, moneyIcon: MONEY_ICON.released };
+    }
+    return { moneyText: t(bundle, "moneyReserved"), moneyState: ValueState.Information, moneyIcon: MONEY_ICON.reserved };
   }
 
   /** The few lines at the top: how many parts are not in order, what the plan costs, what is left out. */
@@ -262,7 +418,8 @@ export default class Main extends Controller {
     const model = this.getModel();
     const areas = model.getProperty("/areas") as Array<{ status: string }>;
     const problems = model.getProperty("/problems") as ProblemRow[];
-    const budget = model.getProperty("/budget") as { total: number; planned: number; unfunded: unknown[] };
+    const budget = model.getProperty("/budget") as { total: number; spent: number; reserved: number; left: number; unfunded: unknown[] };
+    const planned = budget.spent + budget.reserved;
     const notOk = areas.filter((area) => area.status === "trouble" || area.status === "warning").length;
 
     const lines: Array<{ text: string; state: ValueState; icon: string }> = [];
@@ -275,10 +432,19 @@ export default class Main extends Controller {
         icon: "sap-icon://ti/map-pin",
       });
       lines.push({
-        text: t(bundle, "summaryProblems", [problems.length, budget.planned, budget.total]),
-        state: budget.planned > budget.total ? ValueState.Error : ValueState.Information,
+        text: t(bundle, "summaryProblems", [problems.length, planned, budget.total]),
+        state: planned > budget.total ? ValueState.Error : ValueState.Information,
         icon: "sap-icon://ti/coins",
       });
+      // Locked plan: what came up after Monday is not paid by itself — the council decides.
+      const fresh = problems.filter((problem) => problem.planStatus === "new").length;
+      if (fresh > 0) {
+        lines.push({
+          text: t(bundle, "summaryNew", [fresh, Math.max(budget.left, 0)]),
+          state: ValueState.Warning,
+          icon: MONEY_ICON.new,
+        });
+      }
       if (budget.unfunded.length > 0) {
         lines.push({ text: t(bundle, "summaryUnfunded", [budget.unfunded.length]), state: ValueState.Warning, icon: STATE_ICON.warning });
       }
@@ -290,7 +456,7 @@ export default class Main extends Controller {
     model.setProperty("/summary", lines);
   }
 
-  private toProblemRow(problem: ProblemData, rank: number, planned: boolean, bundle: ResourceBundle): ProblemRow {
+  private toProblemRow(problem: ProblemData, rank: number, bundle: ResourceBundle): ProblemRow {
     let why: string;
     if (problem.kind === "water") {
       // "North Residential Area (~140 gezinnen)" when Maren knows how many families live behind the pipe.
@@ -333,10 +499,22 @@ export default class Main extends Controller {
         break;
     }
 
+    // Locked plan: what the money of this problem is doing (reserved, spent, new since Monday, not in the plan).
+    const planStatus = problem.planStatus ?? "";
+    const plan =
+      planStatus === "spent"
+        ? { planText: t(bundle, "planSpent"), planState: ValueState.Success, planIcon: MONEY_ICON.spent }
+        : planStatus === "reserved"
+          ? { planText: t(bundle, "planReserved"), planState: ValueState.Information, planIcon: MONEY_ICON.reserved }
+          : planStatus === "new"
+            ? { planText: t(bundle, "planNew"), planState: ValueState.Warning, planIcon: MONEY_ICON.new }
+            : { planText: t(bundle, "planNone"), planState: ValueState.None, planIcon: MONEY_ICON.none };
+
     const unknown = problem.status === "unknown";
     return {
       ...problem,
-      planned,
+      ...plan,
+      planStatus,
       rank,
       tierText: unknown ? t(bundle, "tierUnknown") : t(bundle, `tier${problem.tier}`),
       state: STATE[problem.status] ?? ValueState.None,
@@ -371,24 +549,27 @@ export default class Main extends Controller {
     };
   }
 
+  /** A line of an earlier week: what the money did, and whether the problem is solved now. */
   private toDecisionRow(
     decision: DecisionData,
-    thisWeek: string,
     openKeys: ReadonlySet<string>,
     repairedKeys: ReadonlySet<string>,
     bundle: ResourceBundle,
-  ): DecisionData & { weekText: string; actionText: string; outcomeText: string; outcomeIcon: string; outcomeState: ValueState } {
-    const current = decision.weekStart === thisWeek;
+  ): DecisionData & MoneyStatus & { weekText: string; actionText: string; outcomeText: string; outcomeIcon: string; outcomeState: ValueState } {
     const still = openKeys.has(decision.problemKey);
-    // Maren logged the repair: the council sees its money at work, even in the week it decided.
-    const repaired = repairedKeys.has(decision.problemKey);
     let outcome: { text: string; icon: string; state: ValueState };
-    if (repaired) outcome = { text: t(bundle, "outcomeRepaired"), icon: STATE_ICON.repaired, state: ValueState.Information };
-    else if (current) outcome = { text: t(bundle, "outcomePlanned"), icon: "sap-icon://ti/checklist", state: ValueState.Information };
-    else if (still) outcome = { text: t(bundle, "outcomeStill"), icon: STATE_ICON.warning, state: ValueState.Warning };
-    else outcome = { text: t(bundle, "outcomeSolved"), icon: STATE_ICON.ok, state: ValueState.Success };
+    if (repairedKeys.has(decision.problemKey)) {
+      outcome = { text: t(bundle, "outcomeRepaired"), icon: STATE_ICON.repaired, state: ValueState.Information };
+    } else if (still) {
+      outcome = { text: t(bundle, "outcomeStill"), icon: STATE_ICON.warning, state: ValueState.Warning };
+    } else {
+      outcome = { text: t(bundle, "outcomeSolved"), icon: STATE_ICON.ok, state: ValueState.Success };
+    }
     return {
       ...decision,
+      ...(decision.status === "reserved"
+        ? { moneyText: t(bundle, "moneyNeverSpent"), moneyState: ValueState.None, moneyIcon: MONEY_ICON.released }
+        : this.moneyOf(decision, bundle)),
       weekText: shortDay.format(parseIsoDate(decision.weekStart)),
       actionText: t(bundle, decision.kind === "water" ? "actionRepair" : "actionDelivery"),
       outcomeText: outcome.text,
