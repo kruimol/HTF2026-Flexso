@@ -1,0 +1,240 @@
+<mvc:View
+    controllerName="rowan.council.controller.Main"
+    class="mrTheme"
+    xmlns="sap.m"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns:f="sap.f"
+    xmlns:core="sap.ui.core"
+    xmlns:l="sap.ui.layout"
+    core:require="{ formatMessage: 'sap/base/strings/formatMessage' }"
+    displayBlock="true"
+    height="100%">
+    <f:DynamicPage id="page" toggleHeaderOnTitleClick="false">
+        <f:title>
+            <f:DynamicPageTitle id="pageTitle">
+                <f:heading>
+                    <HBox id="pageHeading" alignItems="Center">
+                        <core:Icon id="pageLogo" src="sap-icon://ti/building-community" size="1.75rem" class="rowanLogo sapUiSmallMarginEnd" />
+                        <Title id="pageTitleText" text="{i18n>appTitle}" level="H1" wrapping="false" class="mrPageTitle" />
+                    </HBox>
+                </f:heading>
+                <f:expandedContent>
+                    <Label id="pageSubtitle" text="{council>/subtitle}" />
+                </f:expandedContent>
+                <f:snappedContent>
+                    <Label id="pageSubtitleSnapped" text="{council>/subtitle}" />
+                </f:snappedContent>
+                <f:actions>
+                    <Text id="generatedAt" text="{council>/generatedAt}" class="rowanHint" />
+                    <Button id="refreshButton" icon="sap-icon://refresh" tooltip="{i18n>refresh}" press=".onRefresh" />
+                </f:actions>
+            </f:DynamicPageTitle>
+        </f:title>
+
+        <f:content>
+            <VBox id="content" busy="{council>/busy}" class="sapUiResponsiveContentPadding">
+
+                <!-- ====================== This week at a glance ====================== -->
+                <Panel id="summaryPanel" class="rowanSummary sapUiSmallMarginBottom">
+                    <headerToolbar>
+                        <Toolbar id="summaryToolbar" design="Transparent">
+                            <Title id="summaryTitle" text="{i18n>summaryTitle}" level="H2" class="mrHeading" />
+                        </Toolbar>
+                    </headerToolbar>
+                    <List id="summaryList" items="{ path: 'council>/summary', templateShareable: false }" showSeparators="None">
+                        <CustomListItem id="summaryItem">
+                            <HBox id="summaryLine" alignItems="Center" class="sapUiTinyMargin">
+                                <ObjectStatus id="summaryStatus" icon="{council>icon}" state="{council>state}" class="sapUiSmallMarginEnd" />
+                                <Text id="summaryText" text="{council>text}" class="rowanSummaryLine" />
+                            </HBox>
+                        </CustomListItem>
+                    </List>
+                </Panel>
+
+                <!-- ====================== Biggest problems first ====================== -->
+                <Title id="problemsTitle" text="{i18n>problemsTitle}" level="H2" class="mrHeading sapUiMediumMarginTop sapUiTinyMarginBottom" />
+                <Text id="priorityHint" text="{i18n>priorityHint}" class="rowanHint sapUiTinyMarginBottom" />
+                <Table id="problemsTable" items="{ path: 'council>/problems', templateShareable: false }" noDataText="{i18n>problemsNone}">
+                    <columns>
+                        <Column id="colRank" width="3rem"><Text id="colRankHdr" text="{i18n>colRank}" /></Column>
+                        <Column id="colProblem"><Text id="colProblemHdr" text="{i18n>colProblem}" /></Column>
+                        <Column id="colWhy" minScreenWidth="Tablet" demandPopin="true"><Text id="colWhyHdr" text="{i18n>colWhy}" /></Column>
+                        <Column id="colAction" minScreenWidth="Tablet" demandPopin="true"><Text id="colActionHdr" text="{i18n>colAction}" /></Column>
+                        <Column id="colCost" hAlign="End"><Text id="colCostHdr" text="{i18n>colCost}" /></Column>
+                        <Column id="colPlan" hAlign="Center" width="7rem"><Text id="colPlanHdr" text="{i18n>colPlan}" /></Column>
+                    </columns>
+                    <items>
+                        <ColumnListItem id="problemRow">
+                            <cells>
+                                <Text id="rankCell" text="{council>rank}" class="rowanRank" />
+                                <HBox id="problemCell" alignItems="Center">
+                                    <core:Icon id="problemIcon" src="{council>icon}" size="1.5rem" class="sapUiSmallMarginEnd" />
+                                    <VBox id="problemNameBox">
+                                        <ObjectIdentifier id="problemName" title="{council>name}" />
+                                        <ObjectStatus id="problemTier" text="{council>tierText}" icon="{council>stateIcon}" state="{council>state}" />
+                                    </VBox>
+                                </HBox>
+                                <VBox id="whyCell">
+                                    <Text id="whyText" text="{council>why}" />
+                                    <ObjectStatus
+                                        id="doubtStatus"
+                                        text="{council>doubt}"
+                                        icon="sap-icon://ti/alert-triangle"
+                                        state="Warning"
+                                        visible="{= !!${council>doubt} }"
+                                        tooltip="{i18n>doubtTooltip}"
+                                        class="sapUiTinyMarginTop" />
+                                </VBox>
+                                <Text id="actionCell" text="{council>actionText}" />
+                                <ObjectNumber id="costCell" number="{council>cost}" unit="{i18n>crowns}" />
+                                <!-- Not locked or changing the plan: a tick. Locked: what the money is doing. -->
+                                <HBox id="planCellBox" justifyContent="Center">
+                                    <CheckBox id="planCell" selected="{council>planned}" select=".onTogglePlan" tooltip="{i18n>colPlan}"
+                                        visible="{= !${council>/locked} || ${council>/editing} }"
+                                        enabled="{= !${council>/locked} || ${council>planStatus} !== 'spent' }" />
+                                    <ObjectStatus id="planStatusCell" text="{council>planText}" icon="{council>planIcon}" state="{council>planState}"
+                                        visible="{= ${council>/locked} &amp;&amp; !${council>/editing} }" />
+                                </HBox>
+                            </cells>
+                        </ColumnListItem>
+                    </items>
+                </Table>
+
+                <!-- ====================== Budget ====================== -->
+                <!-- Not locked: the proposal, "Plan vastleggen" locks it. Locked: money is reserved per line and
+                     becomes spent when Maren logs the repair or Tobin receives the delivery. A change needs a reason. -->
+                <Toolbar id="budgetToolbar" class="sapUiMediumMarginTop" design="Transparent">
+                    <Title id="budgetTitle" text="{i18n>budgetTitle}" level="H2" class="mrHeading" />
+                    <ToolbarSpacer id="budgetSpacer" />
+                    <Button
+                        id="saveDecisionButton"
+                        icon="sap-icon://ti/gavel"
+                        text="{i18n>saveDecision}"
+                        tooltip="{i18n>saveDecisionTooltip}"
+                        type="Emphasized"
+                        visible="{= !${council>/locked} }"
+                        enabled="{= ${council>/budget/left} >= 0 }"
+                        press=".onSaveDecision" />
+                    <Button
+                        id="editPlanButton"
+                        icon="sap-icon://ti/pencil"
+                        text="{i18n>editPlan}"
+                        tooltip="{i18n>editPlanTooltip}"
+                        visible="{= ${council>/locked} &amp;&amp; !${council>/editing} }"
+                        press=".onEditPlan" />
+                    <Button
+                        id="cancelEditButton"
+                        text="{i18n>cancel}"
+                        visible="{= ${council>/editing} }"
+                        press=".onCancelEdit" />
+                    <Button
+                        id="saveChangeButton"
+                        icon="sap-icon://ti/device-floppy"
+                        text="{i18n>saveChange}"
+                        type="Emphasized"
+                        visible="{= ${council>/editing} }"
+                        enabled="{= ${council>/budget/left} >= 0 }"
+                        press=".onSaveChange" />
+                </Toolbar>
+                <VBox id="budgetBox" class="rowanBudget">
+                    <ObjectStatus id="lockedStatus" text="{council>/lockedText}" icon="sap-icon://ti/lock" state="Information"
+                        visible="{= ${council>/locked} }" class="sapUiTinyMarginBottom" />
+                    <Text id="notLockedHint" text="{i18n>notLockedHint}" class="rowanHint sapUiTinyMarginBottom" visible="{= !${council>/locked} }" />
+                    <Text id="editingHint" text="{i18n>editingHint}" class="rowanHint sapUiTinyMarginBottom" visible="{= ${council>/editing} }" />
+                    <ProgressIndicator
+                        id="budgetBar"
+                        percentValue="{council>/budget/percent}"
+                        displayValue="{council>/budget/barText}"
+                        state="{council>/budget/state}"
+                        showValue="true" />
+                    <HBox id="budgetParts" wrap="Wrap" visible="{= ${council>/locked} }" class="sapUiTinyMarginBottom">
+                        <ObjectStatus id="budgetSpent" text="{ parts: ['i18n>budgetSpent', 'council>/budget/spent'], formatter: 'formatMessage' }"
+                            icon="sap-icon://ti/coins" state="Success" class="sapUiSmallMarginEnd" />
+                        <ObjectStatus id="budgetReserved" text="{ parts: ['i18n>budgetReserved', 'council>/budget/reserved'], formatter: 'formatMessage' }"
+                            icon="sap-icon://ti/lock" state="Information" class="sapUiSmallMarginEnd" />
+                    </HBox>
+                    <ObjectStatus id="budgetLeft" text="{council>/budget/leftText}" icon="sap-icon://ti/coins" state="{council>/budget/state}" />
+
+                    <!-- The plan of this week, line by line: where the money is -->
+                    <Title id="planLinesTitle" text="{i18n>planLinesTitle}" level="H3" class="sapUiSmallMarginTop sapUiTinyMarginBottom"
+                        visible="{= ${council>/locked} }" />
+                    <Table id="planLinesTable" items="{ path: 'council>/planLines', templateShareable: false }" noDataText="{i18n>planLinesNone}"
+                        visible="{= ${council>/locked} }">
+                        <columns>
+                            <Column id="colLine"><Text id="colLineHdr" text="{i18n>colDecision}" /></Column>
+                            <Column id="colLineCost" hAlign="End" width="8rem"><Text id="colLineCostHdr" text="{i18n>colCost}" /></Column>
+                            <Column id="colLineMoney"><Text id="colLineMoneyHdr" text="{i18n>colMoney}" /></Column>
+                        </columns>
+                        <items>
+                            <ColumnListItem id="planLineRow">
+                                <cells>
+                                    <ObjectIdentifier id="lineTitle" title="{council>title}" />
+                                    <ObjectNumber id="lineCost" number="{council>cost}" unit="{i18n>crowns}" />
+                                    <ObjectStatus id="lineMoney" text="{council>moneyText}" icon="{council>moneyIcon}" state="{council>moneyState}" />
+                                </cells>
+                            </ColumnListItem>
+                        </items>
+                    </Table>
+
+                    <Title id="unfundedTitle" text="{i18n>unfundedTitle}" level="H3" class="sapUiSmallMarginTop sapUiTinyMarginBottom" />
+                    <List id="unfundedList" items="{ path: 'council>/budget/unfunded', templateShareable: false }" noDataText="{i18n>unfundedNone}" showSeparators="None">
+                        <StandardListItem id="unfundedItem" title="{council>text}" icon="{council>icon}" />
+                    </List>
+
+                    <!-- Everything that happened to the plan: locked, changed (with the reason), money spent -->
+                    <Title id="planLogTitle" text="{i18n>planLogTitle}" level="H3" class="sapUiSmallMarginTop sapUiTinyMarginBottom"
+                        visible="{= ${council>/locked} }" />
+                    <List id="planLogList" items="{ path: 'council>/planLog', templateShareable: false }" noDataText="{i18n>planLogNone}"
+                        showSeparators="Inner" visible="{= ${council>/locked} }">
+                        <StandardListItem id="planLogItem" title="{council>summary}" description="{council>reason}" info="{council>atText}" icon="{council>icon}" wrapping="true" />
+                    </List>
+                </VBox>
+
+                <!-- ====================== Parts of the village ====================== -->
+                <Title id="areasTitle" text="{i18n>areasTitle}" level="H2" class="mrHeading sapUiMediumMarginTop sapUiTinyMarginBottom" />
+                <l:Grid id="areasGrid" defaultSpan="XL6 L6 M12 S12" hSpacing="1">
+                    <core:HTML id="villageMap" content="{council>/mapSvg}" />
+                    <Table id="areasTable" items="{ path: 'council>/areas', templateShareable: false }">
+                        <columns>
+                            <Column id="colArea"><Text id="colAreaHdr" text="{i18n>colArea}" /></Column>
+                            <Column id="colState"><Text id="colStateHdr" text="{i18n>colState}" /></Column>
+                            <Column id="colReason" minScreenWidth="Tablet" demandPopin="true"><Text id="colReasonHdr" text="{i18n>colReason}" /></Column>
+                        </columns>
+                        <items>
+                            <ColumnListItem id="areaRow">
+                                <cells>
+                                    <ObjectIdentifier id="areaName" title="{council>name}" />
+                                    <ObjectStatus id="areaState" text="{council>stateText}" icon="{council>stateIcon}" state="{council>state}" />
+                                    <Text id="areaReason" text="{council>reason}" />
+                                </cells>
+                            </ColumnListItem>
+                        </items>
+                    </Table>
+                </l:Grid>
+
+                <!-- ====================== Decisions ====================== -->
+                <Title id="decisionsTitle" text="{i18n>decisionsTitleEarlier}" level="H2" class="mrHeading sapUiMediumMarginTop sapUiTinyMarginBottom" />
+                <Table id="decisionsTable" items="{ path: 'council>/decisions', templateShareable: false }" noDataText="{i18n>decisionsNone}">
+                    <columns>
+                        <Column id="colWeek"><Text id="colWeekHdr" text="{i18n>colWeek}" /></Column>
+                        <Column id="colDecision"><Text id="colDecisionHdr" text="{i18n>colDecision}" /></Column>
+                        <Column id="colDecisionCost" hAlign="End"><Text id="colDecisionCostHdr" text="{i18n>colCost}" /></Column>
+                        <Column id="colDecisionMoney" minScreenWidth="Tablet" demandPopin="true"><Text id="colDecisionMoneyHdr" text="{i18n>colMoney}" /></Column>
+                        <Column id="colOutcome"><Text id="colOutcomeHdr" text="{i18n>colOutcome}" /></Column>
+                    </columns>
+                    <items>
+                        <ColumnListItem id="decisionRow">
+                            <cells>
+                                <Text id="decisionWeek" text="{council>weekText}" />
+                                <ObjectIdentifier id="decisionTitle" title="{council>title}" text="{council>actionText}" />
+                                <ObjectNumber id="decisionCost" number="{council>cost}" unit="{i18n>crowns}" />
+                                <ObjectStatus id="decisionMoney" text="{council>moneyText}" icon="{council>moneyIcon}" state="{council>moneyState}" />
+                                <ObjectStatus id="decisionOutcome" text="{council>outcomeText}" icon="{council>outcomeIcon}" state="{council>outcomeState}" />
+                            </cells>
+                        </ColumnListItem>
+                    </items>
+                </Table>
+            </VBox>
+        </f:content>
+    </f:DynamicPage>
+</mvc:View>

@@ -1,0 +1,179 @@
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Special+Elite&family=Courier+Prime&display=swap");
+
+/* The Council's Monday — "Crisis in Oakhaven" house style (same as Tobin's Week Ahead) (see Morning_Round__styling_handoff.md):
+   dark ink, copper and gold, Cinzel headings and a typewriter title. The theme is one class,
+   `mrTheme`, on the view and on every dialog: it overrides the UI5 theme parameters, so all
+   controls follow. The semantic status colours (--sapNegativeColor, --sapCriticalColor,
+   --sapPositiveColor, --sapInformativeColor) are left untouched: red always means alarm. */
+
+.mrTheme {
+    --mrInk: #1a120b;
+    --mrInkRaised: #22170e;
+    --mrCopper: #c0703f;
+    --mrGold: #d4a24c;
+    --mrCream: rgba(243, 230, 200, 0.85);
+    --mrCopperLine: rgba(192, 112, 63, 0.25);
+
+    --sapBackgroundColor: var(--mrInk);
+    --sapShellColor: var(--mrInk);
+    --sapGroup_ContentBackground: var(--mrInkRaised);
+    --sapGroup_TitleBackground: var(--mrInkRaised);
+    --sapGroup_ContentBorderColor: var(--mrCopperLine);
+    --sapObjectHeader_Background: var(--mrInk);
+    --sapPageHeader_Background: var(--mrInk);
+    --sapPageHeader_BorderColor: var(--mrCopperLine);
+    --sapToolbar_Background: transparent;
+    --sapList_Background: var(--mrInkRaised);
+    --sapList_BorderColor: var(--mrCopperLine);
+    --sapList_HeaderBackground: var(--mrInkRaised);
+    --sapList_HeaderBorderColor: var(--mrCopperLine);
+    --sapList_HeaderTextColor: var(--mrGold);
+    --sapList_TableHeaderBorderColor: var(--mrCopperLine);
+    --sapList_Hover_Background: rgba(192, 112, 63, 0.1);
+    --sapList_SelectionBackgroundColor: rgba(192, 112, 63, 0.2);
+    --sapList_Active_Background: rgba(192, 112, 63, 0.3);
+    --sapTextColor: var(--mrCream);
+    --sapTitleColor: var(--mrGold);
+    --sapContent_LabelColor: rgba(243, 230, 200, 0.6);
+    --sapContent_IconColor: var(--mrGold);
+    --sapContent_ContrastIconColor: var(--mrInk);
+    --sapContent_ForegroundBorderColor: var(--mrCopperLine);
+    --sapContent_Selected_Background: rgba(192, 112, 63, 0.25);
+    --sapBrandColor: var(--mrCopper);
+    --sapHighlightColor: var(--mrCopper);
+    --sapLinkColor: var(--mrGold);
+    --sapLink_Hover_Color: var(--mrCopper);
+    --sapField_Background: var(--mrInk);
+    --sapField_BorderColor: var(--mrCopperLine);
+    --sapField_TextColor: var(--mrCream);
+    --sapField_Hover_Background: var(--mrInkRaised);
+    --sapButton_Background: var(--mrInkRaised);
+    --sapButton_BorderColor: var(--mrCopperLine);
+    --sapButton_TextColor: var(--mrGold);
+    --sapButton_Hover_Background: rgba(192, 112, 63, 0.2);
+    --sapButton_Emphasized_Background: var(--mrCopper);
+    --sapButton_Emphasized_BorderColor: var(--mrCopper);
+    --sapButton_Emphasized_TextColor: var(--mrInk);
+    --sapButton_Emphasized_Hover_Background: var(--mrGold);
+    --sapButton_Emphasized_Hover_BorderColor: var(--mrGold);
+    --sapButton_Selected_Background: rgba(192, 112, 63, 0.25);
+    --sapButton_Lite_TextColor: var(--mrGold);
+    --sapShell_Background: var(--mrInk);
+
+    background: var(--mrInk);
+}
+
+/* Page title: typewriter, copper, with a glow. */
+.mrPageTitle {
+    font-family: "Special Elite", "Courier New", Courier, monospace;
+    color: var(--mrCopper);
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    text-shadow: 0 0 12px rgba(192, 112, 63, 0.5);
+}
+
+/* Section heading: Cinzel, gold, capitals. */
+.mrHeading {
+    font-family: "Cinzel", Georgia, serif;
+    font-weight: 700;
+    color: var(--mrGold);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.rowanLogo {
+    color: var(--mrCopper);
+}
+
+/* The summary at the top: the one thing the council reads first. */
+.rowanSummary {
+    max-width: 70rem;
+    border: 1px solid var(--mrCopperLine);
+    border-left: 0.5rem solid var(--mrCopper);
+    border-radius: 0.75rem;
+}
+
+.rowanSummaryLine {
+    font-size: var(--sapFontLargeSize);
+}
+
+.rowanHint {
+    color: var(--sapContent_LabelColor);
+}
+
+.rowanRank {
+    font-family: "Cinzel", Georgia, serif;
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: var(--mrGold);
+}
+
+.rowanBudget {
+    max-width: 64rem;
+}
+
+/* ---------------- Village map (an SVG over the painted map) ---------------- */
+
+.rowanMap {
+    width: 100%;
+    max-width: 52rem;
+    border: 1px solid var(--mrCopperLine);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    line-height: 0;
+}
+
+.rowanMap svg {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.rowanPipe {
+    fill: none;
+    stroke-width: 14;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.9;
+}
+
+.rowanPipe--ok { stroke: var(--sapPositiveColor); }
+.rowanPipe--warning { stroke: var(--sapCriticalColor); stroke-dasharray: 36 18; }
+.rowanPipe--trouble { stroke: var(--sapNegativeColor); stroke-dasharray: 10 18; }
+.rowanPipe--repaired { stroke: var(--sapInformativeColor); stroke-dasharray: 2 16; }
+.rowanPipe--unknown { stroke: var(--sapNeutralColor); stroke-dasharray: 2 16; }
+
+.rowanPin {
+    stroke: var(--mrInk);
+    stroke-width: 6;
+}
+
+.rowanPin--ok { fill: var(--sapPositiveColor); }
+.rowanPin--warning { fill: var(--sapCriticalColor); }
+.rowanPin--trouble { fill: var(--sapNegativeColor); }
+.rowanPin--unknown { fill: var(--sapNeutralColor); }
+.rowanPin--repaired { fill: var(--sapInformativeColor); }
+
+.rowanPinMark {
+    fill: var(--mrInk);
+    font: 700 44px sans-serif;
+    text-anchor: middle;
+    dominant-baseline: central;
+}
+
+.rowanPinLabel {
+    fill: var(--mrCream);
+    font: 700 38px "Cinzel", Georgia, serif;
+    text-anchor: middle;
+    paint-order: stroke;
+    stroke: var(--mrInk);
+    stroke-width: 10;
+}
+
+/* Standalone (outside the launchpad) the page needs the full window height, also the wrapper
+   ComponentSupport puts around the component container. */
+html,
+body,
+body.sapUiBody > div {
+    height: 100%;
+}

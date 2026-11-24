@@ -144,3 +144,96 @@ entity StockCounts : cuid, managed {
   consumed    : Decimal(9, 2);   // used since the previous count (null for the first count)
   days        : Integer;         // days between the previous count and this one
 }
+
+// ---------------------------------------------------------------------------
+// Ilse's Ledger — evidence of tampering: marks, a sealed change log and record fingerprints
+// ---------------------------------------------------------------------------
+
+/** Ilse marked a record as "not to be trusted": nobody should act on it. */
+entity TrustMarks : cuid, managed {
+  entityName  : String;                // e.g. "Sensors"
+  recordID    : UUID;                  // ID of the marked record
+  recordLabel : String;                // human label, e.g. "SENS-004"
+  reason      : String(1000);          // Ilse's own words
+  markedBy    : String;
+  active      : Boolean default true;  // false = the mark was lifted (kept as evidence)
+}
+
+/**
+ * One page of the sealed ledger: one changed field of one record. Every page carries the hash of
+ * the page before it, so removing or editing an old page breaks the chain (see srv/lib/ledger-seal.ts).
+ */
+entity LedgerEntries : cuid {
+  seq        : Integer;      // page number, 1, 2, 3 …
+  at         : Timestamp;    // when the ledger noticed the change
+  entityName : String;
+  recordID   : UUID;
+  recordLabel: String;
+  field      : String;
+  oldValue   : String(1000);
+  newValue   : String(1000);
+  changedBy  : String;       // modifiedBy of the record, or "?" when it changed outside the apps
+  outsideApps: Boolean default false; // the record changed but its modifiedAt did not
+  prevHash   : String(64);
+  hash       : String(64);
+}
+
+/** Last known state of a followed record: what the ledger compares against. */
+entity RecordSeals {
+  key entityName : String;
+  key recordID   : UUID;
+  snapshot       : LargeString;  // JSON of the followed fields
+  modifiedAt     : Timestamp;    // modifiedAt of the record when it was sealed
+  sealedAt       : Timestamp;
+}
+
+// ---------------------------------------------------------------------------
+// The Council's Monday — what the village council decided to pay for, per week
+// ---------------------------------------------------------------------------
+
+/**
+ * One line of the council's weekly plan: money for one problem.
+ * reserved → spent (automatically, when Maren logs the repair or Tobin receives the delivery) · released (taken out
+ * of the plan, with a reason). Only reserved and spent lines count against the week's budget.
+ */
+entity CouncilDecisions : cuid, managed {
+  weekStart  : Date;                    // the Monday of the meeting
+  problemKey : String;                  // water:<pipeID> | food:<itemID>
+  kind       : String;                  // water | food
+  title      : String;                  // what it was about, e.g. "North Mill House → North Residential Area"
+  cost       : Integer;                 // crowns out of the weekly budget
+  note       : String(500);             // optional note of the council
+  status     : String default 'reserved'; // reserved | spent | released
+  spentAt    : Timestamp;               // when the work was done (repair logged / delivery received)
+  spentBy    : String;                  // who did it, e.g. "Maren Holt"
+}
+
+/** A week the council locked its plan: from then on the plan only changes with a reason. */
+entity CouncilWeeks {
+  key weekStart : Date;
+  lockedAt      : Timestamp;
+  seenKeys      : LargeString;          // problems on the page when the plan was locked: later ones are "new since Monday"
+}
+
+/** The log of the plan: locked, changed (with the reason), money spent. Nothing is ever deleted from it. */
+entity CouncilPlanLog : cuid, managed {
+  weekStart  : Date;
+  at         : Timestamp;
+  action     : String;                  // locked | changed | spent
+  summary    : String(1000);            // what changed, in plain words
+  reason     : String(1000);            // the council's reason (for a change)
+}
+
+// ---------------------------------------------------------------------------
+// Morning Round (Maren) — a pipe she saw is broken, until she logs the repair
+// ---------------------------------------------------------------------------
+
+/** Maren reports a broken pipe (a leak she saw, a burst joint …). Open until a repair is logged for that pipe. */
+entity PipeReports : cuid, managed {
+  pipe       : Association to WaterPipes;
+  issue      : String(500);              // what she saw, in her own words
+  reportedBy : String;
+  reportedAt : Timestamp;
+  closedAt   : Timestamp;                // set when a repair is logged for the pipe; null = still broken
+  repair     : Association to Repairs;   // the repair that closed it
+}

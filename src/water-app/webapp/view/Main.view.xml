@@ -1,0 +1,192 @@
+<mvc:View
+    controllerName="oakhaven.waterapp.controller.Main"
+    xmlns="sap.m"
+    xmlns:mvc="sap.ui.core.mvc"
+    xmlns:f="sap.f"
+    xmlns:core="sap.ui.core"
+    core:require="{
+        formatMessage: 'sap/base/strings/formatMessage',
+        DateTimeOffset: 'sap/ui/model/odata/type/DateTimeOffset',
+        Decimal: 'sap/ui/model/odata/type/Decimal'
+    }"
+    displayBlock="true"
+    height="100%"
+    class="mrTheme">
+    <!-- The page is bound (in the controller) to the result of morningRound() — every binding
+         without a model name below reads from that result. -->
+    <f:DynamicPage id="page" backgroundDesign="Transparent" toggleHeaderOnTitleClick="false" busy="{view>/busy}" busyIndicatorDelay="300">
+        <f:title>
+            <f:DynamicPageTitle id="pageTitle">
+                <f:heading>
+                    <HBox id="pageHeading" alignItems="Center">
+                        <core:Icon id="pageLogo" src="sap-icon://ti/droplet" size="1.75rem" class="mrLogo sapUiSmallMarginEnd" />
+                        <Title id="pageTitleText" text="{i18n>appTitle}" level="H1" wrapping="false" class="mrPageTitle" />
+                    </HBox>
+                </f:heading>
+                <f:expandedContent>
+                    <Label id="updatedLabel"
+                        text="{ parts: ['i18n>updated', { path: 'generatedAt', type: 'DateTimeOffset', constraints: { precision: 7 }, formatOptions: { style: 'short' } }], formatter: 'formatMessage' }" />
+                </f:expandedContent>
+                <f:snappedContent>
+                    <Label id="updatedLabelSnapped"
+                        text="{ parts: ['i18n>updated', { path: 'generatedAt', type: 'DateTimeOffset', constraints: { precision: 7 }, formatOptions: { style: 'short' } }], formatter: 'formatMessage' }" />
+                </f:snappedContent>
+                <f:actions>
+                    <SegmentedButton id="modeSwitch" selectedKey="{view>/mode}" selectionChange=".onModeChange">
+                        <layoutData>
+                            <OverflowToolbarLayoutData priority="NeverOverflow" />
+                        </layoutData>
+                        <items>
+                            <SegmentedButtonItem id="modeRound" key="round" icon="sap-icon://ti/walk" tooltip="{i18n>modeRound}" text="{= ${view>/phone} ? '' : ${i18n>modeRound} }" />
+                            <SegmentedButtonItem id="modeDetails" key="details" icon="sap-icon://ti/list-details" tooltip="{i18n>modeDetails}" text="{= ${view>/phone} ? '' : ${i18n>modeDetails} }" />
+                        </items>
+                    </SegmentedButton>
+                    <Button id="reportBrokenButton" icon="sap-icon://ti/alert-octagon" text="{= ${view>/phone} ? '' : ${i18n>reportBroken} }" tooltip="{i18n>reportBroken}" press=".onReportBroken">
+                        <layoutData>
+                            <OverflowToolbarLayoutData priority="NeverOverflow" />
+                        </layoutData>
+                    </Button>
+                    <Button id="refreshButton" icon="sap-icon://ti/refresh" tooltip="{i18n>refresh}" press=".onRefresh">
+                        <layoutData>
+                            <OverflowToolbarLayoutData priority="NeverOverflow" />
+                        </layoutData>
+                    </Button>
+                </f:actions>
+            </f:DynamicPageTitle>
+        </f:title>
+
+        <f:header>
+            <f:DynamicPageHeader id="pageHeader" backgroundDesign="Transparent">
+                <!-- ===================== Summary: how bad is it today? ===================== -->
+                <HBox id="summary" wrap="Wrap" class="mrSummary">
+                    <ObjectStatus id="summaryAlarm" inverted="true" state="Error" icon="sap-icon://ti/alert-octagon" class="mrSummaryItem"
+                        text="{ parts: ['i18n>summaryAlarm', 'alarmCount'], formatter: 'formatMessage' }" />
+                    <ObjectStatus id="summaryUnknown" inverted="true" state="Information" icon="sap-icon://ti/help-circle" class="mrSummaryItem"
+                        visible="{= %{unknownCount} > 0 }"
+                        text="{ parts: ['i18n>summaryUnknown', 'unknownCount'], formatter: 'formatMessage' }" />
+                    <ObjectStatus id="summaryWarning" inverted="true" state="Warning" icon="sap-icon://ti/alert-triangle" class="mrSummaryItem"
+                        text="{ parts: ['i18n>summaryWarning', 'warningCount'], formatter: 'formatMessage' }" />
+                    <ObjectStatus id="summaryRepaired" inverted="true" state="Information" icon="sap-icon://ti/tool" class="mrSummaryItem"
+                        visible="{= %{repairedCount} > 0 }"
+                        text="{ parts: ['i18n>summaryRepaired', 'repairedCount'], formatter: 'formatMessage' }" />
+                    <ObjectStatus id="summaryOk" inverted="true" state="Success" icon="sap-icon://ti/circle-check" class="mrSummaryItem"
+                        text="{ parts: ['i18n>summaryOk', 'okCount'], formatter: 'formatMessage' }" />
+                </HBox>
+
+            </f:DynamicPageHeader>
+        </f:header>
+
+        <f:content>
+            <VBox id="content" class="mrContent sapUiResponsiveContentPadding">
+                <!-- ===================== The round (phone, 6 am, wet gloves) ===================== -->
+                <List id="stopsList" backgroundDesign="Transparent" visible="{= ${view>/mode} === 'round' }" showSeparators="None" noDataText="{i18n>allFine}"
+                    class="mrStops" items="{ path: 'stops', templateShareable: false }">
+                    <CustomListItem id="stopItem" class="mrStop" type="Active" press=".onLogRepair">
+                        <customData>
+                            <core:CustomData key="status" value="{status}" writeToDom="true" />
+                            <core:CustomData key="order" value="{= %{rank} === 1 ? 'first' : 'next' }" writeToDom="true" />
+                        </customData>
+                        <!-- Compact on purpose: every stop must fit on one phone screen, no scrolling or tapping
+                             (Maren reads it at 6 am with wet gloves). The long "why" is in Details. -->
+                        <HBox id="stopRow" alignItems="Center">
+                            <Text id="stopRank" text="{rank}" class="mrRank" />
+                            <VBox id="stopBody" class="mrStopBody">
+                                <HBox id="stopTitleRow" alignItems="Baseline" wrap="Wrap">
+                                    <Title id="stopPipe" text="{pipeID}" level="H2" wrapping="true" class="mrPipe" />
+                                    <Text id="stopStartHere" text="{i18n>startHere}" visible="{= %{rank} === 1 }" class="mrStartHere" />
+                                </HBox>
+                                <Text id="stopHeadline" text="{headline}" wrapping="true" class="mrHeadline" />
+                                <HBox id="stopStatusRow" alignItems="Center" wrap="Wrap" class="mrStatusRow">
+                                    <ObjectStatus id="stopStatus" inverted="true" class="mrStatus"
+                                        text="{= ${status} === 'alarm' ? ${i18n>statusAlarm} : ${status} === 'unknown' ? ${i18n>statusUnknown} : ${status} === 'warning' ? ${i18n>statusWarning} : ${status} === 'repaired' ? ${i18n>statusRepaired} : ${i18n>statusOk} }"
+                                        state="{= ${status} === 'alarm' ? 'Error' : ${status} === 'unknown' ? 'Information' : ${status} === 'warning' ? 'Warning' : 'Success' }"
+                                        icon="{= ${status} === 'alarm' ? 'sap-icon://ti/alert-octagon' : ${status} === 'unknown' ? 'sap-icon://ti/help-circle' : ${status} === 'warning' ? 'sap-icon://ti/alert-triangle' : ${status} === 'repaired' ? 'sap-icon://ti/tool' : 'sap-icon://ti/circle-check' }" />
+                                    <Text id="stopNumbers" class="mrNumbers" visible="{= %{flowPercentage} !== null }"
+                                        text="{ parts: ['i18n>stopNumbers', 'flowPercentage', { path: 'currentPressure', type: 'Decimal', constraints: { scale: 2 }, formatOptions: { minFractionDigits: 0, maxFractionDigits: 0 } }], formatter: 'formatMessage' }" />
+                                </HBox>
+                                <Text id="stopDataWarning" text="{dataWarning}" visible="{= !!%{dataWarning} }" wrapping="true" class="mrDataWarning" />
+                                <ObjectStatus id="stopCouncilFunded" text="{i18n>councilFunded}" icon="sap-icon://ti/coins" state="Information" visible="{= !!%{councilFunded} }" />
+                            </VBox>
+                            <!-- tap the card to log a repair for this pipe -->
+                            <core:Icon id="stopRepairIcon" src="sap-icon://ti/tool" tooltip="{i18n>repairLog}" size="1.5rem" class="mrRepairIcon" />
+                        </HBox>
+                    </CustomListItem>
+                </List>
+
+                <!-- ===================== Details (laptop, in the evening) ===================== -->
+                <VBox id="details" visible="{= ${view>/mode} === 'details' }">
+                    <Title id="mapTitle" text="{i18n>mapTitle}" level="H2" class="mrHeading sapUiSmallMarginBottom" />
+                    <!-- SVG built by model/roundMap.ts: landmarks, pipes by status, the round, places at risk -->
+                    <core:HTML id="map" sanitizeContent="false" preferDOM="false" />
+                    <Text id="mapCaption" text="{i18n>mapCaption}" wrapping="true" class="mrMapCaption sapUiSmallMarginTop sapUiMediumMarginBottom" />
+
+                    <Table id="stopsTable" headerText="{i18n>tableTitle}" noDataText="{i18n>allFine}" popinLayout="GridSmall"
+                        items="{ path: 'stops', templateShareable: false }">
+                        <columns>
+                            <Column id="colRank" width="3rem"><Text id="colRankHdr" text="{i18n>colRank}" /></Column>
+                            <Column id="colPipe"><Text id="colPipeHdr" text="{i18n>colPipe}" /></Column>
+                            <Column id="colStatus"><Text id="colStatusHdr" text="{i18n>colStatus}" /></Column>
+                            <Column id="colFlow" hAlign="End"><Text id="colFlowHdr" text="{i18n>colFlow}" /></Column>
+                            <Column id="colPressure" hAlign="End"><Text id="colPressureHdr" text="{i18n>colPressure}" /></Column>
+                            <Column id="colDependants" minScreenWidth="Tablet" demandPopin="true"><Text id="colDependantsHdr" text="{i18n>colDependants}" /></Column>
+                            <Column id="colWhy" minScreenWidth="Desktop" demandPopin="true"><Text id="colWhyHdr" text="{i18n>colWhy}" /></Column>
+                            <Column id="colProblems" minScreenWidth="Desktop" demandPopin="true"><Text id="colProblemsHdr" text="{i18n>colProblems}" /></Column>
+                            <Column id="colMaintenance" hAlign="End" minScreenWidth="Desktop" demandPopin="true"><Text id="colMaintenanceHdr" text="{i18n>colMaintenance}" /></Column>
+                            <Column id="colDataCheck" minScreenWidth="Desktop" demandPopin="true"><Text id="colDataCheckHdr" text="{i18n>colDataCheck}" /></Column>
+                            <Column id="colRepair" hAlign="End"><Text id="colRepairHdr" text="" /></Column>
+                        </columns>
+                        <items>
+                            <ColumnListItem id="stopRowDetail">
+                                <cells>
+                                    <Text id="cellRank" text="{rank}" class="mrRankSmall" />
+                                    <ObjectIdentifier id="cellPipe" title="{pipeID}" text="{location}" />
+                                    <VBox id="cellStatusBox">
+                                    <ObjectStatus id="cellStatus"
+                                        text="{= ${status} === 'alarm' ? ${i18n>statusAlarm} : ${status} === 'unknown' ? ${i18n>statusUnknown} : ${status} === 'warning' ? ${i18n>statusWarning} : ${status} === 'repaired' ? ${i18n>statusRepaired} : ${i18n>statusOk} }"
+                                        state="{= ${status} === 'alarm' ? 'Error' : ${status} === 'unknown' ? 'Information' : ${status} === 'warning' ? 'Warning' : 'Success' }"
+                                        icon="{= ${status} === 'alarm' ? 'sap-icon://ti/alert-octagon' : ${status} === 'unknown' ? 'sap-icon://ti/help-circle' : ${status} === 'warning' ? 'sap-icon://ti/alert-triangle' : ${status} === 'repaired' ? 'sap-icon://ti/tool' : 'sap-icon://ti/circle-check' }" />
+                                        <ObjectStatus id="cellCouncilFunded" text="{i18n>councilFunded}" icon="sap-icon://ti/coins" state="Information" visible="{= !!%{councilFunded} }" />
+                                    </VBox>
+                                    <ObjectNumber id="cellFlow" number="{flowPercentage}" unit="{i18n>unitPercent}" />
+                                    <ObjectNumber id="cellPressure" unit="{i18n>unitPressure}"
+                                        number="{ path: 'currentPressure', type: 'Decimal', constraints: { scale: 2 }, formatOptions: { minFractionDigits: 0, maxFractionDigits: 0 } }" />
+                                    <Text id="cellDependants" text="{= ${servedPlaces} || ${i18n>noDependants} }" wrapping="true" />
+                                    <Text id="cellWhy" text="{orderReason}" wrapping="true" />
+                                    <Text id="cellProblems" text="{problems}" wrapping="true" />
+                                    <ObjectNumber id="cellMaintenance" number="{daysSinceMaintenance}" unit="{i18n>unitDays}" />
+                                    <ObjectStatus id="cellDataCheck" text="{= %{dataWarning} || ${i18n>dataOk} }"
+                                        state="{= %{dataWarning} ? 'Warning' : 'None' }"
+                                        icon="{= %{dataWarning} ? 'sap-icon://ti/alert-triangle' : '' }" />
+                                    <Button id="cellRepair" icon="sap-icon://ti/tool" text="{i18n>repairLog}" press=".onLogRepair" />
+                                </cells>
+                            </ColumnListItem>
+                        </items>
+                    </Table>
+                </VBox>
+
+                <!-- ===================== Pipes that are fine ===================== -->
+                <!-- Round (phone): one line of chips, always visible — nothing to open -->
+                <HBox id="fineChips" visible="{= ${view>/mode} === 'round' &amp;&amp; %{okCount} > 0 }" alignItems="Center" wrap="Wrap" class="mrFineChips">
+                    <Text id="fineChipsLabel" text="{i18n>fineShort}" class="mrFineLabel" />
+                    <HBox id="fineChipsItems" wrap="Wrap" items="{ path: 'fine', templateShareable: false }" class="mrFineItems">
+                        <ObjectStatus id="fineChip" text="{pipeID}" inverted="true" active="true" press=".onLogRepair"
+                            state="{= %{dataWarning} ? 'Warning' : ${status} === 'repaired' ? 'Information' : 'Success' }"
+                            icon="{= %{dataWarning} ? 'sap-icon://ti/alert-triangle' : ${status} === 'repaired' ? 'sap-icon://ti/tool' : 'sap-icon://ti/circle-check' }"
+                            tooltip="{dataWarning}" class="mrFineChip" />
+                    </HBox>
+                </HBox>
+                <!-- Details (laptop): the full list -->
+                <Panel id="finePanel" expandable="true" expanded="true" class="sapUiMediumMarginTop" visible="{= ${view>/mode} === 'details' }"
+                    headerText="{ parts: ['i18n>fineTitle', 'okCount'], formatter: 'formatMessage' }">
+                    <List id="fineList" showSeparators="Inner" items="{ path: 'fine', templateShareable: false }">
+                        <StandardListItem id="fineItem" title="{pipeID}" description="{= ${status} === 'repaired' ? ${problems} : ${headline} }" type="Active" press=".onLogRepair"
+                            info="{= %{dataWarning} ? ${i18n>checkData} : ${status} === 'repaired' ? ${i18n>statusRepairedShort} : %{flowPercentage} + ' %' }"
+                            infoState="{= %{dataWarning} ? 'Warning' : ${status} === 'repaired' ? 'Information' : 'Success' }"
+                            icon="{= %{dataWarning} ? 'sap-icon://ti/alert-triangle' : ${status} === 'repaired' ? 'sap-icon://ti/tool' : 'sap-icon://ti/circle-check' }"
+                            tooltip="{dataWarning}" />
+                    </List>
+                </Panel>
+            </VBox>
+        </f:content>
+    </f:DynamicPage>
+</mvc:View>

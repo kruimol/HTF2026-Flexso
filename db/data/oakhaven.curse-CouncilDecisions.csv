@@ -1,0 +1,4 @@
+ID,weekStart,problemKey,kind,title,cost,note,status,spentAt,spentBy,createdAt,createdBy,modifiedAt,modifiedBy
+70000000-0000-4000-8000-000000000001,2026-11-16,water:SOUTH-BRANCH,water,Central Market Square → South Meadow Farms,120,Op gevoel gekozen (voorbeeld),spent,2026-11-18T10:00:00Z,Maren Holt,2026-11-16T19:40:00Z,council,2026-11-18T10:00:00Z,council
+70000000-0000-4000-8000-000000000002,2026-11-16,food:MILK,food,Milk,80,Op gevoel gekozen (voorbeeld),spent,2026-11-17T06:00:00Z,Tobin Reyes,2026-11-16T19:40:00Z,council,2026-11-17T06:00:00Z,council
+70000000-0000-4000-8000-000000000003,2026-11-16,water:PRIMARY-MAIN,water,Silverbrook Spring → Central Market Square,120,Op gevoel gekozen (voorbeeld),spent,2026-11-19T14:00:00Z,Maren Holt,2026-11-16T19:40:00Z,council,2026-11-19T14:00:00Z,council

@@ -1,0 +1,23 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core">
+    <!-- A locked plan only changes with a reason: it goes into the plan's log, so Hilde and Bram
+         (and Ilse) can always see why the money moved. -->
+    <Dialog id="reasonDialog" title="{i18n>reasonTitle}" contentWidth="28rem" class="mrTheme sapUiContentPadding">
+        <content>
+            <VBox id="reasonForm">
+                <Text id="reasonHint" text="{i18n>reasonHint}" class="rowanHint sapUiSmallMarginBottom" />
+                <Label id="reasonLabel" text="{i18n>reasonLabel}" labelFor="reasonInput" required="true" />
+                <TextArea id="reasonInput" value="{council>/reason}" rows="3" width="100%" growing="true"
+                    placeholder="{i18n>reasonPlaceholder}" valueLiveUpdate="true" />
+            </VBox>
+        </content>
+        <beginButton>
+            <Button id="reasonSave" text="{i18n>saveChange}" type="Emphasized" icon="sap-icon://ti/device-floppy"
+                enabled="{= !!${council>/reason} }" press=".onConfirmChange" />
+        </beginButton>
+        <endButton>
+            <Button id="reasonCancel" text="{i18n>cancel}" press=".onCancelReason" />
+        </endButton>
+    </Dialog>
+</core:FragmentDefinition>

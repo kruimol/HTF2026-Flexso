@@ -1,0 +1,28 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core">
+    <!-- 💧 Maren reports a broken pipe she saw herself. It stays in alarm until she logs the repair.
+         Big fields and buttons: she fills this in on her phone, outside. -->
+    <Dialog id="reportBrokenDialog" title="{i18n>reportTitle}" contentWidth="26rem" class="mrTheme sapUiContentPadding">
+        <content>
+            <VBox id="reportForm" class="mrRepairForm">
+                <Label id="reportPipeLabel" text="{i18n>reportPipe}" labelFor="reportPipe" required="true" />
+                <Select id="reportPipe" selectedKey="{report>/pipe_ID}" width="100%" items="{ path: 'report>/pipes', templateShareable: false }">
+                    <core:ListItem id="reportPipeItem" key="{report>pipe_ID}" text="{report>pipeID}" additionalText="{report>location}" />
+                </Select>
+                <Label id="reportIssueLabel" text="{i18n>reportIssue}" labelFor="reportIssue" required="true" class="sapUiSmallMarginTop" />
+                <TextArea id="reportIssue" value="{report>/issue}" rows="3" width="100%" growing="true"
+                    placeholder="{i18n>reportIssuePlaceholder}" valueLiveUpdate="true" />
+                <Label id="reportByLabel" text="{i18n>reportBy}" labelFor="reportBy" required="true" class="sapUiSmallMarginTop" />
+                <Input id="reportBy" value="{report>/reportedBy}" width="100%" valueLiveUpdate="true" />
+            </VBox>
+        </content>
+        <beginButton>
+            <Button id="reportSave" text="{i18n>reportSave}" type="Emphasized" icon="sap-icon://ti/alert-octagon" press=".onSaveReport"
+                enabled="{= !!${report>/pipe_ID} &amp;&amp; !!${report>/issue} &amp;&amp; !!${report>/reportedBy} &amp;&amp; !${report>/busy} }" />
+        </beginButton>
+        <endButton>
+            <Button id="reportCancel" text="{i18n>repairCancel}" press=".onCancelReport" />
+        </endButton>
+    </Dialog>
+</core:FragmentDefinition>

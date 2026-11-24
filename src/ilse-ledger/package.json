@@ -1,0 +1,9 @@
+{
+  "name": "ilse.ledger",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ilse's Ledger — what changed, when, and what is suspicious about it",
+  "devDependencies": {
+    "ui5-tooling-transpile": "^3.13.1"
+  }
+}
