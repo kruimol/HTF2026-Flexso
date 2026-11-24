@@ -16,8 +16,10 @@ import {
   type MorningRound,
   type PipeInput,
   type RepairInput,
+  type ReportInput,
   type SensorInput,
 } from './lib/water-priority';
+import { weekStartOf } from './lib/council-priorities';
 
 // 👋 EXAMPLE — the shape of a WaterPipes row as our handler sees it. Every field is optional:
 //    the client decides which fields it asks for ($select).
@@ -41,6 +43,7 @@ interface ActionRequest {
     readonly issue?: string | null;
     readonly repairDate?: string | null;
     readonly repairedBy?: string | null;
+    readonly reportedBy?: string | null;
   };
   error(code: number, message: string, target?: string): unknown;
 }
@@ -60,12 +63,13 @@ interface CdsApi {
       };
     };
     INSERT: { into(entity: string): { entries(data: Readonly<Record<string, unknown>>): PromiseLike<unknown> } };
+    UPDATE: (entity: string) => { set(values: Readonly<Record<string, unknown>>): { where(predicate: Readonly<Record<string, unknown>>): PromiseLike<unknown> } };
   };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const cds = require('@sap/cds') as CdsApi;
-const { SELECT, INSERT } = cds.ql;
+const { SELECT, INSERT, UPDATE } = cds.ql;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -116,8 +120,21 @@ async function morningRound(): Promise<MorningRound> {
     SELECT.from('oakhaven.curse.Landmarks').columns<LandmarkInput>('name', 'kind', 'gridCell', 'suppliedBy'),
     SELECT.from('oakhaven.curse.Sensors').columns<SensorInput>('sensorID', 'pipe_ID', 'flowRate', 'pressure', 'lastReading', 'modifiedAt'),
   ]);
-  const repairs = await SELECT.from('oakhaven.curse.Repairs').columns<RepairInput>('pipe_ID', 'issue', 'repairDate', 'repairedBy');
-  return planMorningRound(pipes, landmarks, sensors, new Date(), repairs);
+  const now = new Date();
+  const [repairs, reports, decisions] = await Promise.all([
+    SELECT.from('oakhaven.curse.Repairs').columns<RepairInput>('pipe_ID', 'issue', 'repairDate', 'repairedBy'),
+    SELECT.from('oakhaven.curse.PipeReports')
+      .columns<ReportInput>('pipe_ID', 'issue', 'reportedBy', 'reportedAt')
+      .where({ closedAt: null }),
+    // The council's plan of this week (The Council's Monday): which repairs it pays for.
+    SELECT.from('oakhaven.curse.CouncilDecisions')
+      .columns<{ problemKey: string }>('problemKey')
+      .where({ weekStart: weekStartOf(now), kind: 'water' }),
+  ]);
+  const round = planMorningRound(pipes, landmarks, sensors, now, repairs, reports);
+  const funded = new Set(decisions.map((decision) => decision.problemKey));
+  for (const stop of [...round.stops, ...round.fine]) stop.councilFunded = funded.has(`water:${stop.pipeID}`);
+  return round;
 }
 
 /** 💧 Maren logs a repair: validate, then add it to the repair log. */
@@ -139,7 +156,27 @@ async function logRepair(req: ActionRequest): Promise<unknown> {
   const repairDate = date === today ? `${new Date().toISOString().slice(0, 19)}Z` : `${date}T12:00:00Z`;
   const repair = { ID: randomUUID(), pipe_ID: req.data.pipe_ID, repairID: randomUUID(), issue, repairDate, repairedBy };
   await INSERT.into('oakhaven.curse.Repairs').entries(repair);
+  // The repair closes every open report of this pipe: it is no longer "broken" in the round.
+  await UPDATE('oakhaven.curse.PipeReports')
+    .set({ closedAt: new Date().toISOString(), repair_ID: repair.ID })
+    .where({ pipe_ID: req.data.pipe_ID, closedAt: null });
   return repair;
+}
+
+/** 💧 Maren reports a broken pipe: it shows as alarm until she logs a repair for it. */
+async function reportBroken(req: ActionRequest): Promise<unknown> {
+  const issue = req.data.issue?.trim();
+  const reportedBy = req.data.reportedBy?.trim();
+  if (!req.data.pipe_ID) return req.error(400, 'Which pipe is broken?', 'pipe_ID');
+  if (!issue) return req.error(400, 'What did you see? Describe the problem.', 'issue');
+  if (!reportedBy) return req.error(400, 'Who reports it?', 'reportedBy');
+
+  const [pipe] = await SELECT.from('oakhaven.curse.WaterPipes').columns('ID').where({ ID: req.data.pipe_ID });
+  if (!pipe) return req.error(404, 'That pipe does not exist.', 'pipe_ID');
+
+  const report = { ID: randomUUID(), pipe_ID: req.data.pipe_ID, issue, reportedBy, reportedAt: new Date().toISOString() };
+  await INSERT.into('oakhaven.curse.PipeReports').entries(report);
+  return report;
 }
 
 export default class WaterSupplyService extends cds.ApplicationService {
@@ -150,6 +187,7 @@ export default class WaterSupplyService extends cds.ApplicationService {
     // 💧 Maren — GET /odata/v4/water-supply/morningRound()
     this.on('morningRound', morningRound);
     this.on('logRepair', logRepair);
+    this.on('reportBroken', reportBroken);
 
     startDemoSensorFeed();
     return super.init();

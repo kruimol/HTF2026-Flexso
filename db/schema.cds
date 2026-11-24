@@ -200,3 +200,17 @@ entity CouncilDecisions : cuid, managed {
   cost       : Integer;                 // crowns out of the weekly budget
   note       : String(500);             // optional note of the council
 }
+
+// ---------------------------------------------------------------------------
+// Morning Round (Maren) — a pipe she saw is broken, until she logs the repair
+// ---------------------------------------------------------------------------
+
+/** Maren reports a broken pipe (a leak she saw, a burst joint …). Open until a repair is logged for that pipe. */
+entity PipeReports : cuid, managed {
+  pipe       : Association to WaterPipes;
+  issue      : String(500);              // what she saw, in her own words
+  reportedBy : String;
+  reportedAt : Timestamp;
+  closedAt   : Timestamp;                // set when a repair is logged for the pipe; null = still broken
+  repair     : Association to Repairs;   // the repair that closed it
+}

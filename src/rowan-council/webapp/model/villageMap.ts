@@ -1,6 +1,6 @@
 /**
  * Draws the village map as one SVG: the painted map, every pipe coloured by its state and a pin per
- * part of the village with a mark (✓ ! ✕ ?) and its name, so the state never depends on colour alone.
+ * part of the village with a mark (✓ ↺ ! ✕ ?) and its name, so the state never depends on colour alone.
  * Grid maths from the README ("The village map").
  *
  * @namespace rowan.council.model
@@ -14,7 +14,7 @@ const CELL_HEIGHT = GRID_BOUNDS.height / 8;
 /** Rough width of one label character in map pixels (38px Cinzel capitals). */
 const LABEL_CHAR_WIDTH = 30;
 
-const MARKS: Readonly<Record<string, string>> = { ok: "✓", warning: "!", trouble: "✕", unknown: "?" };
+const MARKS: Readonly<Record<string, string>> = { ok: "✓", repaired: "↺", warning: "!", trouble: "✕", unknown: "?" };
 
 export interface MapArea {
   name: string;

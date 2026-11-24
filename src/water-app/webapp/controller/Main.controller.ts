@@ -22,6 +22,13 @@ interface MorningRoundResult {
   readonly places?: readonly MapLandmark[];
 }
 
+/** A pipe of the round, as far as the report form needs it. */
+interface ReportPipe {
+  readonly pipe_ID?: string | null;
+  readonly pipeID?: string;
+  readonly location?: string;
+}
+
 /** The repair form's state (named model "repair"). */
 interface RepairForm {
   pipe_ID: string;
@@ -36,9 +43,13 @@ interface RepairForm {
 /** Remembers who did the last repair on this device, so Maren does not type her name every time. */
 const LAST_REPAIRER_KEY = "oakhaven.waterapp.lastRepairer";
 
+/** The browser's localStorage (the project's tsconfig has no DOM typings, so only what we use). */
+const storage = (globalThis as { localStorage?: { getItem(key: string): string | null; setItem(key: string, value: string): void } })
+  .localStorage;
+
 function readLastRepairer(): string {
   try {
-    return window.localStorage.getItem(LAST_REPAIRER_KEY) ?? "";
+    return storage?.getItem(LAST_REPAIRER_KEY) ?? "";
   } catch {
     return "";
   }
@@ -46,10 +57,19 @@ function readLastRepairer(): string {
 
 function rememberRepairer(name: string): void {
   try {
-    window.localStorage.setItem(LAST_REPAIRER_KEY, name);
+    storage?.setItem(LAST_REPAIRER_KEY, name);
   } catch {
     // storage blocked: just ask again next time
   }
+}
+
+/** The report form's state (named model "report"). */
+interface ReportForm {
+  pipe_ID: string;
+  issue: string;
+  reportedBy: string;
+  pipes: Array<{ pipe_ID: string; pipeID: string; location: string }>;
+  busy: boolean;
 }
 
 /** Maren checks the list while walking: refresh it every minute. */
@@ -68,6 +88,7 @@ export default class Main extends Controller {
   private loading = false;
   private lastRound?: MorningRoundResult;
   private repairDialog?: Dialog;
+  private reportDialog?: Dialog;
 
   public onInit(): void {
     const viewModel = new JSONModel({
@@ -145,6 +166,50 @@ export default class Main extends Controller {
       MessageBox.error(error instanceof Error ? error.message : String(error));
     } finally {
       repairModel.setProperty("/busy", false);
+      action.destroy();
+    }
+  }
+
+  /** "I saw it myself": report a broken pipe. It stays in alarm until a repair is logged. */
+  public async onReportBroken(): Promise<void> {
+    const round = this.lastRound as { stops?: readonly ReportPipe[]; fine?: readonly ReportPipe[] } | undefined;
+    const pipes = [...(round?.stops ?? []), ...(round?.fine ?? [])]
+      .filter((pipe) => pipe.pipe_ID)
+      .map((pipe) => ({ pipe_ID: pipe.pipe_ID ?? "", pipeID: pipe.pipeID ?? "", location: pipe.location ?? "" }))
+      .sort((a, b) => a.pipeID.localeCompare(b.pipeID));
+    const form: ReportForm = { pipe_ID: "", issue: "", reportedBy: readLastRepairer(), pipes, busy: false };
+    this.getView()?.setModel(new JSONModel(form), "report");
+    this.reportDialog ??= (await this.loadFragment({ name: "oakhaven.waterapp.view.ReportBrokenDialog" })) as Dialog;
+    this.reportDialog.open();
+  }
+
+  public onCancelReport(): void {
+    this.reportDialog?.close();
+  }
+
+  /** Save: call the reportBroken action, then refresh the round (the pipe is now in alarm). */
+  public async onSaveReport(): Promise<void> {
+    const reportModel = this.getView()?.getModel("report") as JSONModel | undefined;
+    const odata = this.getOwnerComponent()?.getModel() as ODataModel | undefined;
+    if (!reportModel || !odata) return;
+    const form = reportModel.getData() as ReportForm;
+    reportModel.setProperty("/busy", true);
+    const action = odata.bindContext("/reportBroken(...)") as ODataContextBinding;
+    action.setParameter("pipe_ID", form.pipe_ID);
+    action.setParameter("issue", form.issue.trim());
+    action.setParameter("reportedBy", form.reportedBy.trim());
+    try {
+      await action.invoke();
+      rememberRepairer(form.reportedBy.trim());
+      this.reportDialog?.close();
+      const pipeID = form.pipes.find((pipe) => pipe.pipe_ID === form.pipe_ID)?.pipeID ?? "";
+      const bundle = await this.getBundle();
+      MessageToast.show(bundle?.getText("reportSaved", [pipeID]) ?? "Reported");
+      await this.loadRound(false);
+    } catch (error) {
+      MessageBox.error(error instanceof Error ? error.message : String(error));
+    } finally {
+      reportModel.setProperty("/busy", false);
       action.destroy();
     }
   }

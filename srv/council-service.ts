@@ -2,7 +2,8 @@
  * Handlers of CouncilService (srv/council-service.cds): The Council's Monday.
  *
  * `villageWeek()` gathers the state of the village and hands it to `lib/council-priorities.ts`:
- * - water: the pipes and which part of the village each one feeds (Landmarks.suppliedBy);
+ * - water: Maren's morning round (`WaterSupplyService.morningRound()`): her status per pipe, who
+ *   depends on it, her data checks and the pipes she reported broken or repaired;
  * - food: Tobin's forecast (`FoodStockService.weekAhead()`) for the ingredients he follows,
  *   the same thresholds for the rest of the pantry;
  * - trust: Ilse's active marks (a marked sensor counts for its pipe).
@@ -18,6 +19,7 @@ import {
   type FoodInput,
   type LandmarkInput,
   type PipeInput,
+  type WaterStatus,
 } from './lib/council-priorities';
 
 const WATER_PIPES = 'oakhaven.curse.WaterPipes';
@@ -44,6 +46,37 @@ interface PipeRow {
   nominalFlowRate: number | string | null;
   currentFlowRate: number | string | null;
   mapPath: string | null;
+}
+
+/** One stop of Maren's morning round (only the fields the council uses). */
+interface RoundStopRow {
+  pipeID: string;
+  rank: number | null;
+  status: string | null;
+  servedNames: string | null;
+  households: number | null;
+  dataWarning: string | null;
+  reportedBroken: boolean | null;
+  problems: string | null;
+}
+
+const WATER_STATUSES: readonly WaterStatus[] = ['alarm', 'unknown', 'warning', 'repaired', 'ok'];
+
+/** Maren's fields of one pipe; a pipe missing from her round counts as "I don't know". */
+function marenOn(stop: RoundStopRow | undefined): Pick<
+  PipeInput,
+  'status' | 'roundRank' | 'servedNames' | 'households' | 'dataWarning' | 'reportedBroken' | 'note'
+> {
+  const status = WATER_STATUSES.find((candidate) => candidate === stop?.status) ?? 'unknown';
+  return {
+    status,
+    roundRank: stop?.rank ?? 99,
+    servedNames: stop?.servedNames ?? '',
+    households: stop?.households ?? 0,
+    dataWarning: stop?.dataWarning ?? '',
+    reportedBroken: stop?.reportedBroken ?? false,
+    note: stop?.problems ?? '',
+  };
 }
 
 interface LandmarkRow {
@@ -171,6 +204,10 @@ export default class CouncilService extends cds.ApplicationService {
       const pipes = (await SELECT.from(WATER_PIPES).columns(
         'ID', 'pipeID', 'location', 'startPoint', 'endPoint', 'nominalFlowRate', 'currentFlowRate', 'mapPath',
       )) as PipeRow[];
+      // Maren's judgement of every pipe: her morning round (thresholds, old readings, repairs, reports).
+      const water = await cds.connect.to('WaterSupplyService');
+      const round = (await water.send('morningRound')) as { stops?: RoundStopRow[]; fine?: RoundStopRow[] } | null;
+      const rounds = new Map([...(round?.stops ?? []), ...(round?.fine ?? [])].map((stop) => [stop.pipeID, stop]));
       const landmarks = (await SELECT.from(LANDMARKS).columns('ID', 'name', 'kind', 'gridCell', 'suppliedBy')) as LandmarkRow[];
 
       return buildVillageWeek(
@@ -184,6 +221,7 @@ export default class CouncilService extends cds.ApplicationService {
             nominalFlowRate: num(pipe.nominalFlowRate),
             currentFlowRate: num(pipe.currentFlowRate),
             mapPath: pipe.mapPath ?? '',
+            ...marenOn(rounds.get(pipe.pipeID)),
           }),
         ),
         landmarks.map(

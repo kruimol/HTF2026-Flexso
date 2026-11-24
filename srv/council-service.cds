@@ -18,12 +18,14 @@ service CouncilService @(path: 'council', impl: 'srv/council-service') {
     name           : String;
     kind           : String;
     gridCell       : String;
-    status         : String;        // ok | warning | trouble | unknown
+    status         : String;        // ok | repaired | warning | trouble | unknown
     pipeID         : String;        // the pipe that brings the water in, '' = none in the register
     weakestPipeID  : String;        // worst pipe on the way from the spring, '' = all fine
     currentFlow    : Decimal(9, 2);
     nominalFlow    : Decimal(9, 2);
     flowPercent    : Integer;
+    households     : Integer;       // Maren: families behind the pipe
+    waterNote      : String;        // Maren's line when the pipe is reported broken or repaired
     foodIssues     : Integer;       // bakery: Tobin's ingredients that are not green
     foodIssueNames : String;
   }
@@ -33,7 +35,7 @@ service CouncilService @(path: 'council', impl: 'srv/council-service') {
     problemKey      : String;       // water:<pipeID> | food:<itemID>
     kind            : String;       // water | food
     tier            : Integer;      // 1 no water, 2 hunger this week, 3 water warning, 4 pantry warning, 5 nobody depends on it
-    status          : String;       // warning | trouble
+    status          : String;       // warning | trouble | unknown
     refID           : String;
     name            : String;
     icon            : String;
@@ -42,6 +44,10 @@ service CouncilService @(path: 'council', impl: 'srv/council-service') {
     flowPercent     : Integer;
     affectedAreas   : String;
     affectedCount   : Integer;
+    households      : Integer;
+    roundRank       : Integer;      // Maren's visiting order (water)
+    reportedBroken  : Boolean;      // Maren saw it broken herself
+    note            : String;       // what Maren saw
     currentQuantity : Decimal(9, 2);
     minStockLevel   : Decimal(9, 2);
     unit            : String;
@@ -49,6 +55,7 @@ service CouncilService @(path: 'council', impl: 'srv/council-service') {
     daysLeft        : Integer;      // -1 = not within the week
     cost            : Integer;      // crowns
     untrusted       : Boolean;      // Ilse marked it, or the record holds an impossible value
+    doubtKind       : String;       // ilse | data (impossible value) | waterData (Maren's data check) | noReading
     trustReason     : String;
     planned         : Boolean;      // fits in the budget, most urgent first
   }
@@ -56,7 +63,7 @@ service CouncilService @(path: 'council', impl: 'srv/council-service') {
   /** A pipe on the village map, coloured by its state. */
   type PipeLine {
     pipeID  : String;
-    status  : String;
+    status  : String;        // ok | repaired | warning | trouble | unknown
     mapPath : String;
   }
 

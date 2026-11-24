@@ -25,6 +25,9 @@ service WaterSupplyService @(path: 'water-supply', impl: 'srv/water-supply-servi
   @readonly
   entity Landmarks  as projection on db.Landmarks;
 
+  @readonly
+  entity PipeReports as projection on db.PipeReports;
+
   // 💧 Maren's morning round — logic in srv/lib/water-priority.ts, shown by src/water-app.
   //    Try it: http://localhost:4004/odata/v4/water-supply/morningRound()
 
@@ -44,6 +47,9 @@ service WaterSupplyService @(path: 'water-supply', impl: 'srv/water-supply-servi
     dependants           : String;        // village | families | bakery | farms | nobody
     headline             : String;        // one line for the phone: who sits without water
     servedPlaces         : String;        // every place downstream that depends on this pipe
+    servedNames          : String;        // the same places, names only (used by the council app)
+    reportedBroken       : Boolean;       // Maren reported it broken, no repair logged yet
+    councilFunded        : Boolean;       // the council put the repair of this pipe in this week's plan
     households           : Integer;
     orderReason          : String;        // why this pipe is at this position
     dataWarning          : String;        // sensor and pipe record do not add up
@@ -82,4 +88,10 @@ service WaterSupplyService @(path: 'water-supply', impl: 'srv/water-supply-servi
    * The pipe then shows as repaired until new readings come in (see srv/lib/water-priority.ts).
    */
   action logRepair(pipe_ID : UUID, issue : String, repairDate : Date, repairedBy : String) returns Repairs;
+
+  /**
+   * 💧 Maren reports a broken pipe she saw herself. The pipe is in alarm (whatever the readings say)
+   * until she logs a repair for it; logRepair closes the report.
+   */
+  action reportBroken(pipe_ID : UUID, issue : String, reportedBy : String) returns PipeReports;
 }

@@ -28,6 +28,8 @@ interface AreaData {
   currentFlow: number;
   nominalFlow: number;
   flowPercent: number;
+  households: number;
+  waterNote: string;
   foodIssues: number;
   foodIssueNames: string;
 }
@@ -46,6 +48,10 @@ interface ProblemData {
   flowPercent: number;
   affectedAreas: string;
   affectedCount: number;
+  households: number;
+  roundRank: number;
+  reportedBroken: boolean;
+  note: string;
   currentQuantity: number;
   minStockLevel: number;
   unit: string;
@@ -53,6 +59,7 @@ interface ProblemData {
   daysLeft: number;
   cost: number;
   untrusted: boolean;
+  doubtKind: string;
   trustReason: string;
   planned: boolean;
 }
@@ -91,18 +98,21 @@ const STATE: Readonly<Record<string, ValueState>> = {
   warning: ValueState.Warning,
   trouble: ValueState.Error,
   unknown: ValueState.None,
+  repaired: ValueState.Information,
 };
 const STATE_ICON: Readonly<Record<string, string>> = {
   ok: "sap-icon://ti/circle-check",
   warning: "sap-icon://ti/alert-triangle",
   trouble: "sap-icon://ti/alert-octagon",
   unknown: "sap-icon://ti/question-mark",
+  repaired: "sap-icon://ti/tool",
 };
 const AREA_TEXT: Readonly<Record<string, string>> = {
   ok: "areaOk",
   warning: "areaWarning",
   trouble: "areaTrouble",
   unknown: "areaUnknown",
+  repaired: "areaRepaired",
 };
 
 const longDay = DateFormat.getDateInstance({ pattern: "EEEE d MMMM" });
@@ -199,7 +209,11 @@ export default class Main extends Controller {
         buildMapSvg(sap.ui.require.toUrl("rowan/council/img/oakhaven-map.jpg"), week.areas, week.pipes, t(bundle, "mapAlt")),
       );
       const openKeys = new Set(week.problems.map((problem) => problem.problemKey));
-      model.setProperty("/decisions", decisions.map((decision) => this.toDecisionRow(decision, week.weekStart, openKeys, bundle)));
+      const repairedKeys = new Set(week.pipes.filter((pipe) => pipe.status === "repaired").map((pipe) => `water:${pipe.pipeID}`));
+      model.setProperty(
+        "/decisions",
+        decisions.map((decision) => this.toDecisionRow(decision, week.weekStart, openKeys, repairedKeys, bundle)),
+      );
       this.updateBudget(bundle);
       model.setProperty(
         "/generatedAt",
@@ -279,8 +293,15 @@ export default class Main extends Controller {
   private toProblemRow(problem: ProblemData, rank: number, planned: boolean, bundle: ResourceBundle): ProblemRow {
     let why: string;
     if (problem.kind === "water") {
-      const args = [problem.affectedAreas, problem.currentFlow, problem.nominalFlow, problem.flowPercent];
-      why = t(bundle, problem.tier === 1 ? "waterNoWater" : problem.tier === 5 ? "waterNobody" : "waterLow", args);
+      // "North Residential Area (~140 gezinnen)" when Maren knows how many families live behind the pipe.
+      const affected =
+        problem.households > 0 && problem.affectedCount === 1
+          ? t(bundle, "households", [problem.affectedAreas, problem.households])
+          : problem.affectedAreas;
+      const args = [affected, problem.currentFlow, problem.nominalFlow, problem.flowPercent];
+      if (problem.reportedBroken) why = t(bundle, "waterReported", [problem.note, affected]);
+      else if (problem.status === "unknown") why = t(bundle, "waterUnknown", [affected]);
+      else why = t(bundle, problem.tier === 1 ? "waterNoWater" : problem.tier === 5 ? "waterNobody" : "waterLow", args);
     } else if (problem.runOutDate && problem.daysLeft === 0) {
       why = t(bundle, "foodToday", [problem.currentQuantity, problem.unit, problem.minStockLevel]);
     } else if (problem.runOutDate) {
@@ -295,22 +316,34 @@ export default class Main extends Controller {
     }
 
     let doubt = "";
-    if (problem.untrusted) {
-      if (problem.trustReason === "dataSuspect") doubt = t(bundle, "doubtData", [problem.currentQuantity, problem.unit]);
-      else if (problem.trustReason) doubt = t(bundle, "doubtIlse", [problem.trustReason]);
-      else doubt = t(bundle, "doubtIlseNoReason");
+    switch (problem.doubtKind) {
+      case "data":
+        doubt = t(bundle, "doubtData", [problem.currentQuantity, problem.unit]);
+        break;
+      case "waterData":
+        doubt = t(bundle, "doubtWaterData", [problem.trustReason]);
+        break;
+      case "noReading":
+        doubt = t(bundle, "doubtNoReading");
+        break;
+      case "ilse":
+        doubt = problem.trustReason ? t(bundle, "doubtIlse", [problem.trustReason]) : t(bundle, "doubtIlseNoReason");
+        break;
+      default:
+        break;
     }
 
+    const unknown = problem.status === "unknown";
     return {
       ...problem,
       planned,
       rank,
-      tierText: t(bundle, `tier${problem.tier}`),
+      tierText: unknown ? t(bundle, "tierUnknown") : t(bundle, `tier${problem.tier}`),
       state: STATE[problem.status] ?? ValueState.None,
-      stateIcon: problem.kind === "water" ? "sap-icon://ti/droplet-off" : "sap-icon://ti/mood-sad",
+      stateIcon: unknown ? STATE_ICON.unknown : problem.kind === "water" ? "sap-icon://ti/droplet-off" : "sap-icon://ti/mood-sad",
       why,
       doubt,
-      actionText: t(bundle, problem.kind === "water" ? "actionRepair" : "actionDelivery"),
+      actionText: t(bundle, problem.kind === "food" ? "actionDelivery" : unknown ? "actionInspect" : "actionRepair"),
     };
   }
 
@@ -320,11 +353,14 @@ export default class Main extends Controller {
       reasons.push(t(bundle, "areaReasonSource"));
     } else if (!area.pipeID) {
       reasons.push(t(bundle, "areaReasonUnknown"));
+    } else if (area.waterNote) {
+      reasons.push(t(bundle, "areaReasonMaren", [area.waterNote]));
     } else if (area.weakestPipeID && area.weakestPipeID !== area.pipeID) {
       reasons.push(t(bundle, "areaReasonWaterVia", [area.weakestPipeID, area.flowPercent, area.currentFlow, area.nominalFlow]));
     } else {
       reasons.push(t(bundle, "areaReasonWater", [area.flowPercent, area.currentFlow, area.nominalFlow]));
     }
+    if (area.households > 0) reasons.push(t(bundle, "areaReasonHouseholds", [area.households]));
     if (area.foodIssues > 0) reasons.push(t(bundle, "areaReasonFood", [area.foodIssueNames]));
     return {
       ...area,
@@ -339,17 +375,25 @@ export default class Main extends Controller {
     decision: DecisionData,
     thisWeek: string,
     openKeys: ReadonlySet<string>,
+    repairedKeys: ReadonlySet<string>,
     bundle: ResourceBundle,
   ): DecisionData & { weekText: string; actionText: string; outcomeText: string; outcomeIcon: string; outcomeState: ValueState } {
     const current = decision.weekStart === thisWeek;
     const still = openKeys.has(decision.problemKey);
+    // Maren logged the repair: the council sees its money at work, even in the week it decided.
+    const repaired = repairedKeys.has(decision.problemKey);
+    let outcome: { text: string; icon: string; state: ValueState };
+    if (repaired) outcome = { text: t(bundle, "outcomeRepaired"), icon: STATE_ICON.repaired, state: ValueState.Information };
+    else if (current) outcome = { text: t(bundle, "outcomePlanned"), icon: "sap-icon://ti/checklist", state: ValueState.Information };
+    else if (still) outcome = { text: t(bundle, "outcomeStill"), icon: STATE_ICON.warning, state: ValueState.Warning };
+    else outcome = { text: t(bundle, "outcomeSolved"), icon: STATE_ICON.ok, state: ValueState.Success };
     return {
       ...decision,
       weekText: shortDay.format(parseIsoDate(decision.weekStart)),
       actionText: t(bundle, decision.kind === "water" ? "actionRepair" : "actionDelivery"),
-      outcomeText: current ? t(bundle, "outcomePlanned") : t(bundle, still ? "outcomeStill" : "outcomeSolved"),
-      outcomeIcon: current ? "sap-icon://ti/checklist" : still ? STATE_ICON.warning : STATE_ICON.ok,
-      outcomeState: current ? ValueState.Information : still ? ValueState.Warning : ValueState.Success,
+      outcomeText: outcome.text,
+      outcomeIcon: outcome.icon,
+      outcomeState: outcome.state,
     };
   }
 

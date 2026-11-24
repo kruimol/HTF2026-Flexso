@@ -1,17 +1,25 @@
 /**
  * Priority logic of The Council's Monday: pure functions, no database, no CAP.
  *
- * Turns the state of the village (water pipes, the pantry, Ilse's trust marks) into
+ * Turns the state of the village into
  * - one status per part of the village ("in orde" or not), and
  * - one ranked list of problems, each with the action the council can pay for and its cost,
  * and spends the weekly budget on that list, most urgent first.
+ *
+ * The council does not judge the water or the food itself — Rowan: "Maren knows best for the water
+ * and Tobin for the food". Each pipe arrives with Maren's status (her morning round: thresholds,
+ * old readings, repairs, pipes she reported broken) and each pantry item with Tobin's status.
  *
  * Rowan's rule for what comes first: a part of the village without water, or someone going hungry
  * this week. The tiers below follow that rule; everything else comes after.
  */
 
-export type AreaStatus = 'ok' | 'warning' | 'trouble' | 'unknown';
+export type AreaStatus = 'ok' | 'repaired' | 'warning' | 'trouble' | 'unknown';
 export type ProblemKind = 'water' | 'food';
+/** Maren's status of a pipe (srv/lib/water-priority.ts). */
+export type WaterStatus = 'alarm' | 'unknown' | 'warning' | 'repaired' | 'ok';
+/** Why the council should not simply pay: who or what casts doubt on the numbers. */
+export type DoubtKind = '' | 'ilse' | 'data' | 'waterData' | 'noReading';
 
 /** Weekly budget of the council, in crowns (Rowan). */
 export const WEEK_BUDGET = 500;
@@ -19,13 +27,6 @@ export const WEEK_BUDGET = 500;
 export const PIPE_REPAIR_COST = 120;
 /** An emergency food delivery costs this much EXTRA; the food itself comes out of the pantry money (Rowan). */
 export const EMERGENCY_DELIVERY_COST = 80;
-
-/**
- * ASSUMPTION until Maren confirms it: a pipe that carries less than half of what it should
- * leaves the part behind it without (enough) water; under 80 % is a warning.
- */
-export const NO_WATER_RATIO = 0.5;
-export const LOW_WATER_RATIO = 0.8;
 
 /** Days the council looks ahead: one meeting to the next. */
 export const WEEK_DAYS = 7;
@@ -37,6 +38,7 @@ const SOURCE_KINDS = new Set(['spring']);
 /** Tobin's followed ingredients are what the bakery needs to bake. */
 const BAKERY_KIND = 'bakery';
 
+/** One pipe with Maren's judgement of it (one stop of her morning round). */
 export interface PipeInput {
   ID: string;
   pipeID: string;
@@ -46,6 +48,13 @@ export interface PipeInput {
   nominalFlowRate: number;
   currentFlowRate: number;
   mapPath: string;
+  status: WaterStatus;
+  roundRank: number; // Maren's visiting order: her priority (families, bakery, farms …)
+  servedNames: string; // places that depend on it (", "-separated), by Maren's downstream walk
+  households: number;
+  dataWarning: string; // Maren's check: sensor and pipe record do not add up, tampered repair …
+  reportedBroken: boolean; // Maren saw it broken herself
+  note: string; // Maren's own line: what is wrong, or the repair she logged
 }
 
 export interface LandmarkInput {
@@ -85,6 +94,8 @@ export interface Area {
   currentFlow: number; // of the weakest pipe (or the supplying pipe when all is fine)
   nominalFlow: number;
   flowPercent: number;
+  households: number;
+  waterNote: string; // Maren's line for the weakest pipe when it is reported broken or repaired
   foodIssues: number; // bakery: Tobin's ingredients that are not green
   foodIssueNames: string;
 }
@@ -93,7 +104,7 @@ export interface Problem {
   problemKey: string; // water:<pipeID> | food:<itemID>
   kind: ProblemKind;
   tier: number; // 1 no water, 2 hunger this week, 3 water warning, 4 pantry warning, 5 no part of the village depends on it
-  status: 'warning' | 'trouble';
+  status: 'warning' | 'trouble' | 'unknown';
   refID: string; // pipeID or itemID
   name: string; // pipe location or item name
   icon: string;
@@ -103,6 +114,10 @@ export interface Problem {
   flowPercent: number;
   affectedAreas: string; // ", "-separated names
   affectedCount: number;
+  households: number;
+  roundRank: number; // Maren's order; 0 for food
+  reportedBroken: boolean;
+  note: string; // Maren's line (reported broken: what she saw)
   // food
   currentQuantity: number;
   minStockLevel: number;
@@ -112,7 +127,8 @@ export interface Problem {
   // money and trust
   cost: number;
   untrusted: boolean;
-  trustReason: string; // Ilse's reason, or 'dataSuspect'
+  doubtKind: DoubtKind;
+  trustReason: string; // Ilse's reason, or Maren's data warning
   planned: boolean; // fits in the budget, in priority order
 }
 
@@ -132,17 +148,23 @@ export interface VillageWeek {
   pipes: PipeLine[];
 }
 
-const STATUS_RANK: Readonly<Record<AreaStatus, number>> = { trouble: 0, warning: 1, unknown: 2, ok: 3 };
+const STATUS_RANK: Readonly<Record<AreaStatus, number>> = { trouble: 0, warning: 1, unknown: 2, repaired: 3, ok: 4 };
+
+/** Maren's word for a pipe → the council's word for the part of the village behind it. */
+const AREA_STATUS: Readonly<Record<WaterStatus, AreaStatus>> = {
+  alarm: 'trouble',
+  warning: 'warning',
+  unknown: 'unknown',
+  repaired: 'repaired',
+  ok: 'ok',
+};
 
 function ratioOf(pipe: PipeInput): number {
   return pipe.nominalFlowRate > 0 ? pipe.currentFlowRate / pipe.nominalFlowRate : 1;
 }
 
 export function pipeStatus(pipe: PipeInput): AreaStatus {
-  const ratio = ratioOf(pipe);
-  if (ratio < NO_WATER_RATIO) return 'trouble';
-  if (ratio < LOW_WATER_RATIO) return 'warning';
-  return 'ok';
+  return AREA_STATUS[pipe.status] ?? 'unknown';
 }
 
 const percent = (ratio: number): number => Math.round(ratio * 100);
@@ -210,6 +232,13 @@ function supplyChain(landmark: LandmarkInput, pipes: readonly PipeInput[], sourc
   return chain;
 }
 
+/** Worst first: Maren's status, then the lowest flow. */
+function worstPipe(chain: readonly PipeInput[]): PipeInput | undefined {
+  return [...chain].sort(
+    (a, b) => STATUS_RANK[pipeStatus(a)] - STATUS_RANK[pipeStatus(b)] || ratioOf(a) - ratioOf(b),
+  )[0];
+}
+
 /** Everything the council sees on Monday. */
 export function buildVillageWeek(
   pipes: readonly PipeInput[],
@@ -219,22 +248,21 @@ export function buildVillageWeek(
   today: Date,
 ): VillageWeek {
   // --- Parts of the village ---------------------------------------------------------------------
-  const chains = new Map<string, PipeInput[]>();
   const areas: Area[] = [];
   const sources = new Set(landmarks.filter((landmark) => SOURCE_KINDS.has(landmark.kind)).map((landmark) => landmark.name));
   const bakeryIssues = food.filter((item) => item.followedByTobin && item.status !== 'green');
   for (const landmark of landmarks) {
     if (SKIPPED_KINDS.has(landmark.kind)) continue;
     const chain = supplyChain(landmark, pipes, sources);
-    chains.set(landmark.name, chain);
-    const weakest = [...chain].sort((a, b) => ratioOf(a) - ratioOf(b))[0];
-    let status: AreaStatus = SOURCE_KINDS.has(landmark.kind) ? 'ok' : chain.length === 0 ? 'unknown' : pipeStatus(weakest);
+    const weakest = worstPipe(chain);
+    let status: AreaStatus = SOURCE_KINDS.has(landmark.kind) ? 'ok' : weakest ? pipeStatus(weakest) : 'unknown';
     const isBakery = landmark.kind === BAKERY_KIND;
     if (isBakery && bakeryIssues.length > 0) {
       const foodStatus: AreaStatus = bakeryIssues.some((item) => item.status === 'red') ? 'trouble' : 'warning';
       if (STATUS_RANK[foodStatus] < STATUS_RANK[status]) status = foodStatus;
     }
-    const shown = weakest && pipeStatus(weakest) !== 'ok' ? weakest : chain[0];
+    const notFine = weakest && pipeStatus(weakest) !== 'ok' ? weakest : undefined;
+    const shown = notFine ?? chain[0];
     areas.push({
       areaKey: landmark.ID,
       name: landmark.name,
@@ -242,10 +270,12 @@ export function buildVillageWeek(
       gridCell: landmark.gridCell,
       status,
       pipeID: chain[0]?.pipeID ?? '',
-      weakestPipeID: weakest && pipeStatus(weakest) !== 'ok' ? weakest.pipeID : '',
+      weakestPipeID: notFine?.pipeID ?? '',
       currentFlow: shown?.currentFlowRate ?? 0,
       nominalFlow: shown?.nominalFlowRate ?? 0,
       flowPercent: shown ? percent(ratioOf(shown)) : 0,
+      households: pipes.find((pipe) => pipe.pipeID === landmark.suppliedBy)?.households ?? 0,
+      waterNote: notFine && (notFine.reportedBroken || notFine.status === 'repaired') ? notFine.note : '',
       foodIssues: isBakery ? bakeryIssues.length : 0,
       foodIssueNames: isBakery ? bakeryIssues.map((item) => item.name).join(', ') : '',
     });
@@ -255,35 +285,46 @@ export function buildVillageWeek(
   // --- Problems ---------------------------------------------------------------------------------
   const problems: Problem[] = [];
   for (const pipe of pipes) {
-    const status = pipeStatus(pipe);
-    if (status === 'ok') continue;
-    const affected = landmarks.filter((landmark) =>
-      (chains.get(landmark.name) ?? []).some((link) => link.pipeID === pipe.pipeID),
-    );
-    const reason = trust.get(pipe.ID);
+    if (pipe.status === 'ok' || pipe.status === 'repaired') continue;
+    const affected = pipe.servedNames ? pipe.servedNames.split(', ').filter((name) => name) : [];
+    // Doubt, strongest first: Ilse marked it · Maren has no reading · Maren's data check fails.
+    // A pipe Maren saw broken herself is not in doubt, whatever the data says.
+    const ilse = trust.get(pipe.ID);
+    let doubtKind: DoubtKind = '';
+    let trustReason = '';
+    if (ilse !== undefined) [doubtKind, trustReason] = ['ilse', ilse];
+    else if (pipe.status === 'unknown') [doubtKind, trustReason] = ['noReading', pipe.note];
+    else if (pipe.dataWarning && !pipe.reportedBroken) [doubtKind, trustReason] = ['waterData', pipe.dataWarning];
     problems.push({
       ...emptyProblem(),
       problemKey: `water:${pipe.pipeID}`,
       kind: 'water',
-      tier: affected.length === 0 ? 5 : status === 'trouble' ? 1 : 3,
-      status: status === 'trouble' ? 'trouble' : 'warning',
+      tier: affected.length === 0 ? 5 : pipe.status === 'alarm' ? 1 : 3,
+      status: pipe.status === 'alarm' ? 'trouble' : pipe.status === 'unknown' ? 'unknown' : 'warning',
       refID: pipe.pipeID,
       name: pipe.location,
       icon: 'sap-icon://ti/droplet-off',
       currentFlow: pipe.currentFlowRate,
       nominalFlow: pipe.nominalFlowRate,
       flowPercent: percent(ratioOf(pipe)),
-      affectedAreas: affected.map((landmark) => landmark.name).join(', '),
+      affectedAreas: affected.join(', '),
       affectedCount: affected.length,
-      cost: PIPE_REPAIR_COST,
-      untrusted: reason !== undefined,
-      trustReason: reason ?? '',
+      households: pipe.households,
+      roundRank: pipe.roundRank,
+      reportedBroken: pipe.reportedBroken,
+      note: pipe.reportedBroken ? pipe.note : '',
+      // "I don't know": Maren goes and looks first — that costs nothing yet.
+      cost: pipe.status === 'unknown' ? 0 : PIPE_REPAIR_COST,
+      untrusted: doubtKind !== '',
+      doubtKind,
+      trustReason,
     });
   }
   for (const item of food) {
     if (item.status === 'green') continue;
     const daysLeft = daysUntil(item.runOutDate, today);
-    const reason = trust.get(item.itemUUID) ?? (item.dataSuspect ? 'dataSuspect' : undefined);
+    const ilse = trust.get(item.itemUUID);
+    const doubtKind: DoubtKind = ilse !== undefined ? 'ilse' : item.dataSuspect ? 'data' : '';
     problems.push({
       ...emptyProblem(),
       problemKey: `food:${item.itemID}`,
@@ -299,13 +340,14 @@ export function buildVillageWeek(
       runOutDate: item.runOutDate,
       daysLeft,
       cost: EMERGENCY_DELIVERY_COST,
-      untrusted: reason !== undefined,
-      trustReason: reason ?? '',
+      untrusted: doubtKind !== '',
+      doubtKind,
+      trustReason: ilse ?? '',
     });
   }
   problems.sort(compareProblems);
 
-  // --- Budget: most urgent first; a problem Ilse or the data casts doubt on is checked first, not paid ---
+  // --- Budget: most urgent first; a problem with doubt on its numbers is checked first, not paid ---
   let left = WEEK_BUDGET;
   for (const problem of problems) {
     if (!problem.untrusted && problem.cost <= left) {
@@ -325,12 +367,10 @@ export function buildVillageWeek(
   };
 }
 
-/** Tier first; within a tier: more parts without water first, then the weakest pipe / the earliest run-out. */
+/** Tier first; within a tier: Maren's order for water, the earliest run-out for food. */
 function compareProblems(a: Problem, b: Problem): number {
   if (a.tier !== b.tier) return a.tier - b.tier;
-  if (a.kind === 'water' && b.kind === 'water') {
-    return b.affectedCount - a.affectedCount || a.flowPercent - b.flowPercent;
-  }
+  if (a.kind === 'water' && b.kind === 'water') return a.roundRank - b.roundRank;
   const daysA = a.daysLeft < 0 ? Number.MAX_SAFE_INTEGER : a.daysLeft;
   const daysB = b.daysLeft < 0 ? Number.MAX_SAFE_INTEGER : b.daysLeft;
   return daysA - daysB || a.name.localeCompare(b.name);
@@ -350,6 +390,10 @@ function emptyProblem(): Problem {
     flowPercent: 0,
     affectedAreas: '',
     affectedCount: 0,
+    households: 0,
+    roundRank: 0,
+    reportedBroken: false,
+    note: '',
     currentQuantity: 0,
     minStockLevel: 0,
     unit: '',
@@ -357,6 +401,7 @@ function emptyProblem(): Problem {
     daysLeft: -1,
     cost: 0,
     untrusted: false,
+    doubtKind: '',
     trustReason: '',
     planned: false,
   };

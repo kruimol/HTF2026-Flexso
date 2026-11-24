@@ -41,6 +41,11 @@
                             <SegmentedButtonItem id="modeDetails" key="details" icon="sap-icon://ti/list-details" tooltip="{i18n>modeDetails}" text="{= ${view>/phone} ? '' : ${i18n>modeDetails} }" />
                         </items>
                     </SegmentedButton>
+                    <Button id="reportBrokenButton" icon="sap-icon://ti/alert-octagon" text="{= ${view>/phone} ? '' : ${i18n>reportBroken} }" tooltip="{i18n>reportBroken}" press=".onReportBroken">
+                        <layoutData>
+                            <OverflowToolbarLayoutData priority="NeverOverflow" />
+                        </layoutData>
+                    </Button>
                     <Button id="refreshButton" icon="sap-icon://ti/refresh" tooltip="{i18n>refresh}" press=".onRefresh">
                         <layoutData>
                             <OverflowToolbarLayoutData priority="NeverOverflow" />
@@ -100,6 +105,7 @@
                                         text="{ parts: ['i18n>stopNumbers', 'flowPercentage', { path: 'currentPressure', type: 'Decimal', constraints: { scale: 2 }, formatOptions: { minFractionDigits: 0, maxFractionDigits: 0 } }], formatter: 'formatMessage' }" />
                                 </HBox>
                                 <Text id="stopDataWarning" text="{dataWarning}" visible="{= !!%{dataWarning} }" wrapping="true" class="mrDataWarning" />
+                                <ObjectStatus id="stopCouncilFunded" text="{i18n>councilFunded}" icon="sap-icon://ti/coins" state="Information" visible="{= !!%{councilFunded} }" />
                             </VBox>
                             <!-- tap the card to log a repair for this pipe -->
                             <core:Icon id="stopRepairIcon" src="sap-icon://ti/tool" tooltip="{i18n>repairLog}" size="1.5rem" class="mrRepairIcon" />
@@ -134,10 +140,13 @@
                                 <cells>
                                     <Text id="cellRank" text="{rank}" class="mrRankSmall" />
                                     <ObjectIdentifier id="cellPipe" title="{pipeID}" text="{location}" />
+                                    <VBox id="cellStatusBox">
                                     <ObjectStatus id="cellStatus"
                                         text="{= ${status} === 'alarm' ? ${i18n>statusAlarm} : ${status} === 'unknown' ? ${i18n>statusUnknown} : ${status} === 'warning' ? ${i18n>statusWarning} : ${status} === 'repaired' ? ${i18n>statusRepaired} : ${i18n>statusOk} }"
                                         state="{= ${status} === 'alarm' ? 'Error' : ${status} === 'unknown' ? 'Information' : ${status} === 'warning' ? 'Warning' : 'Success' }"
                                         icon="{= ${status} === 'alarm' ? 'sap-icon://ti/alert-octagon' : ${status} === 'unknown' ? 'sap-icon://ti/help-circle' : ${status} === 'warning' ? 'sap-icon://ti/alert-triangle' : ${status} === 'repaired' ? 'sap-icon://ti/tool' : 'sap-icon://ti/circle-check' }" />
+                                        <ObjectStatus id="cellCouncilFunded" text="{i18n>councilFunded}" icon="sap-icon://ti/coins" state="Information" visible="{= !!%{councilFunded} }" />
+                                    </VBox>
                                     <ObjectNumber id="cellFlow" number="{flowPercentage}" unit="{i18n>unitPercent}" />
                                     <ObjectNumber id="cellPressure" unit="{i18n>unitPressure}"
                                         number="{ path: 'currentPressure', type: 'Decimal', constraints: { scale: 2 }, formatOptions: { minFractionDigits: 0, maxFractionDigits: 0 } }" />

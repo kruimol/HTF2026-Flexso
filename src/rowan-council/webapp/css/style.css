@@ -140,6 +140,8 @@
 .rowanPipe--ok { stroke: var(--sapPositiveColor); }
 .rowanPipe--warning { stroke: var(--sapCriticalColor); stroke-dasharray: 36 18; }
 .rowanPipe--trouble { stroke: var(--sapNegativeColor); stroke-dasharray: 10 18; }
+.rowanPipe--repaired { stroke: var(--sapInformativeColor); stroke-dasharray: 2 16; }
+.rowanPipe--unknown { stroke: var(--sapNeutralColor); stroke-dasharray: 2 16; }
 
 .rowanPin {
     stroke: var(--mrInk);
@@ -150,6 +152,7 @@
 .rowanPin--warning { fill: var(--sapCriticalColor); }
 .rowanPin--trouble { fill: var(--sapNegativeColor); }
 .rowanPin--unknown { fill: var(--sapNeutralColor); }
+.rowanPin--repaired { fill: var(--sapInformativeColor); }
 
 .rowanPinMark {
     fill: var(--mrInk);

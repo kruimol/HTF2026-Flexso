@@ -132,6 +132,14 @@ export interface RepairInput {
   readonly repairedBy?: string | null;
 }
 
+/** An open report: Maren saw that this pipe is broken (closed as soon as she logs a repair). */
+export interface ReportInput {
+  readonly pipe_ID?: string | null;
+  readonly issue?: string | null;
+  readonly reportedBy?: string | null;
+  readonly reportedAt?: string | null;
+}
+
 /** One stop of the round — matches the CDS type `WaterSupplyService.RoundStop`. */
 export interface RoundStop {
   rank: number;
@@ -151,6 +159,12 @@ export interface RoundStop {
   headline: string;
   /** Every place downstream that depends on this pipe. */
   servedPlaces: string;
+  /** The same places, names only (for other apps, e.g. the council). */
+  servedNames: string;
+  /** Maren reported this pipe broken and no repair is logged yet. */
+  reportedBroken: boolean;
+  /** The council put the repair of this pipe in this week's plan (filled in by the water service). */
+  councilFunded: boolean;
   households: number;
   /** Why this pipe is at this position. */
   orderReason: string;
@@ -376,6 +390,7 @@ export function planMorningRound(
   sensors: readonly SensorInput[],
   now: Date = new Date(),
   repairs: readonly RepairInput[] = [],
+  reports: readonly ReportInput[] = [],
 ): MorningRound {
   // Worst status per landmark over every pipe it depends on (directly or upstream).
   const supplyByPlace = new Map<string, PipeStatus>();
@@ -407,6 +422,17 @@ export function planMorningRound(
       status = 'repaired';
       problems = [
         `Repaired ${day(latestRepair.repairDate)} by ${latestRepair.repairedBy ?? '?'}: ${latestRepair.issue ?? ''} — waiting for new readings`,
+      ];
+    }
+    // "I saw it myself": an open report beats the readings — the pipe is broken until a repair is logged.
+    const openReport = reports
+      .filter((report) => report.pipe_ID === pipe.ID)
+      .sort((a, b) => time(b.reportedAt) - time(a.reportedAt))[0];
+    if (openReport) {
+      status = 'alarm';
+      problems = [
+        `Reported broken ${day(openReport.reportedAt)} by ${openReport.reportedBy ?? '?'}: ${openReport.issue ?? ''}`,
+        ...problems.filter((problem) => !problem.startsWith('Repaired ')),
       ];
     }
     const places = placesDownstream(pipe, pipes, landmarks);
@@ -441,6 +467,9 @@ export function planMorningRound(
       dependants,
       headline: headlineFor(dependants, places, households, status),
       servedPlaces: places.map(placeLabel).join(', '),
+      servedNames: places.map((place) => place.name ?? '').join(', '),
+      reportedBroken: openReport !== undefined,
+      councilFunded: false,
       households,
       orderReason: '',
       dataWarning: [
