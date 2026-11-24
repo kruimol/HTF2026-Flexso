@@ -26,7 +26,7 @@ export interface PlaceStory {
   /** The mystery that will become this place's puzzle. */
   readonly mystery: string;
   /** The game of this place: solve it to earn the stamp. No game yet: the stamp is free. */
-  readonly game?: "pipes" | "words" | "sheep" | "market";
+  readonly game?: "pipes" | "words" | "sheep" | "market" | "maze";
 }
 
 const MAREN: Villager = {
@@ -86,7 +86,8 @@ export const PLACE_STORIES: readonly PlaceStory[] = [
     kind: "forest",
     about: "Tall trees and quiet paths along the north and west of the village.",
     villagers: [],
-    mystery: "The forest grows in three parts of the map. Can you find all three?",
+    mystery: "Somewhere deep in the forest lies a torn page. Take your lantern and find your way between the trees!",
+    game: "maze",
   },
   {
     name: "Central Market Square",

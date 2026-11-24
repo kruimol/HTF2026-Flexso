@@ -11,6 +11,7 @@ import { buildBoardSvg, isSolved, newPuzzle, turnCell, type PipeBoard } from "..
 import { buildWordGridSvg, newWordGrid, wordAt, type WordGrid } from "../model/wordSearch";
 import { answerOptions, buildMeadowSvg, newWave, type Wave } from "../model/sheepCount";
 import { buildMarketSvg, newMarket, productOf, stallOf, type MarketGame, type StallId } from "../model/marketConnect";
+import { buildMazeSvg, directionTo, move, newMaze, type Direction, type Maze } from "../model/forestMaze";
 import type { Button$PressEvent } from "sap/m/Button";
 import type Button from "sap/m/Button";
 import { PLACE_STORIES, type PlaceStory } from "../model/places";
@@ -33,12 +34,17 @@ const PUZZLE_SIZE = 5;
 /** The word search: 10 × 10, words from the i18n file (so the language of the words can change). */
 const WORD_GRID_SIZE = 10;
 
+/** The forest maze: 9 × 6 fits a laptop and a tablet. */
+const MAZE_COLS = 9;
+const MAZE_ROWS = 6;
+
 /** Stamps are kept in this browser: a child's own progress (a convenience, not village data). */
 const STAMPS_KEY = "oakhaven.hunt.stamps";
 
 /** The slice of the browser DOM this controller uses (the tsconfig has no DOM lib). */
 interface DomElement {
   addEventListener(type: string, listener: (event: DomEvent) => void): void;
+  focus?(): void;
   closest?(selector: string): DomElement | null;
   getAttribute?(name: string): string | null;
 }
@@ -104,6 +110,11 @@ export default class Main extends Controller {
   private market?: MarketGame;
   private matched: Record<string, StallId> = {};
   private picked: string | null = null;
+  private mazeDialog?: Dialog;
+  private maze?: Maze;
+  private mazeAt = 0;
+  private mazeTrail: number[] = [0];
+  private mazeByKeyboard = false;
   private cells = new Map<string, string[]>();
   private pipes: HuntPipe[] = [];
   private listening = false;
@@ -120,6 +131,7 @@ export default class Main extends Controller {
         words: { svg: "", list: [], found: 0, total: 0, solved: false },
         sheep: { svg: "", phase: "ready", options: [], message: "" },
         market: { svg: "", done: 0, total: 0, solved: false, message: "", wrong: false },
+        maze: { svg: "", steps: 0, solved: false, bump: false },
       }),
       "hunt",
     );
@@ -132,6 +144,7 @@ export default class Main extends Controller {
     this.wordDialog?.destroy();
     this.sheepDialog?.destroy();
     this.marketDialog?.destroy();
+    this.mazeDialog?.destroy();
     if (this.sheepTimer) clearTimeout(this.sheepTimer);
   }
 
@@ -141,6 +154,11 @@ export default class Main extends Controller {
   public async onPlay(): Promise<void> {
     this.placeDialog?.close();
     const game = this.getHuntModel().getProperty("/place/game") as string;
+    if (game === "maze") {
+      await this.newMazeGame();
+      (await this.getMazeDialog()).open();
+      return;
+    }
     if (game === "market") {
       await this.newMarketGame();
       (await this.getMarketDialog()).open();
@@ -158,6 +176,110 @@ export default class Main extends Controller {
     }
     this.newBoard();
     (await this.getGameDialog()).open();
+  }
+
+  /* ------------------------------ The maze (Deepwood Forest) ------------------------------ */
+
+  public onMazeUp(): void {
+    void this.walk("up", false);
+  }
+
+  public onMazeDown(): void {
+    void this.walk("down", false);
+  }
+
+  public onMazeLeft(): void {
+    void this.walk("left", false);
+  }
+
+  public onMazeRight(): void {
+    void this.walk("right", false);
+  }
+
+  public async onNewMaze(): Promise<void> {
+    await this.newMazeGame();
+  }
+
+  public onCloseMaze(): void {
+    this.mazeDialog?.close();
+  }
+
+  private async newMazeGame(): Promise<void> {
+    this.maze = newMaze(MAZE_COLS, MAZE_ROWS, Math.floor(Math.random() * 1_000_000) + 1);
+    this.mazeAt = 0;
+    this.mazeTrail = [0];
+    const model = this.getHuntModel();
+    model.setProperty("/maze/steps", 0);
+    model.setProperty("/maze/solved", false);
+    model.setProperty("/maze/bump", false);
+    await this.drawMaze();
+  }
+
+  /** One step; walking back the way you came rolls the trail back up. */
+  private async walk(dir: Direction, byKeyboard: boolean): Promise<void> {
+    const model = this.getHuntModel();
+    if (!this.maze || model.getProperty("/maze/solved")) return;
+    this.mazeByKeyboard = byKeyboard;
+    const next = move(this.maze, this.mazeAt, dir);
+    if (next === null) {
+      model.setProperty("/maze/bump", true); // a tree is in the way
+      return;
+    }
+    model.setProperty("/maze/bump", false);
+    this.mazeAt = next;
+    if (this.mazeTrail.length > 1 && this.mazeTrail[this.mazeTrail.length - 2] === next) this.mazeTrail.pop();
+    else this.mazeTrail.push(next);
+    model.setProperty("/maze/steps", (model.getProperty("/maze/steps") as number) + 1);
+    if (next === this.maze.cols * this.maze.rows - 1) {
+      model.setProperty("/maze/solved", true);
+      await this.earnStamp(); // the torn page found: the stamp of the forest
+    }
+    await this.drawMaze();
+  }
+
+  private async drawMaze(): Promise<void> {
+    if (!this.maze) return;
+    const bundle = await this.getBundle();
+    this.getHuntModel().setProperty("/maze/svg", `<div class="fmWrap">${buildMazeSvg(this.maze, this.mazeAt, this.mazeTrail, {
+      title: this.text(bundle, "mazeTitle"),
+      walk: this.text(bundle, "mazeWalk"),
+    })}</div>`);
+    const html = this.byId("mazeBoard") as HTML | undefined;
+    if (html) setTimeout(() => this.listenMaze(html), 0);
+  }
+
+  /** Click a neighbouring cell to walk there; the arrow keys work too (on the focused forest). */
+  private listenMaze(html: HTML): void {
+    this.listenFor(html, "data-cell", (value) => {
+      const dir = this.maze ? directionTo(this.maze, this.mazeAt, Number(value)) : null;
+      if (dir) void this.walk(dir, false);
+    });
+    const root = html.getDomRef() as unknown as (DomElement & Record<string, unknown>) | null;
+    if (!root) return;
+    if (!root["hunt-arrows"]) {
+      root["hunt-arrows"] = true;
+      const keys: Readonly<Record<string, Direction>> = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right" };
+      root.addEventListener("keydown", (event) => {
+        const dir = event.key ? keys[event.key] : undefined;
+        if (!dir) return;
+        event.preventDefault();
+        void this.walk(dir, true);
+      });
+    }
+    // The forest is re-drawn after every step: keep the keyboard focus on it.
+    if (this.mazeByKeyboard) ((root as unknown as { querySelector?(s: string): DomElement | null }).querySelector?.("svg") ?? root).focus?.();
+  }
+
+  private async getMazeDialog(): Promise<Dialog> {
+    if (!this.mazeDialog) {
+      const view = this.getView();
+      if (!view) throw new Error("view not ready");
+      this.mazeDialog = (await Fragment.load({ id: view.getId(), name: "oakhaven.hunt.view.MazeGame", controller: this })) as Dialog;
+      view.addDependent(this.mazeDialog);
+      const html = this.byId("mazeBoard") as HTML | undefined;
+      html?.attachAfterRendering(() => this.listenMaze(html));
+    }
+    return this.mazeDialog;
   }
 
   /* ------------------------------ Products to stalls (Central Market Square) ------------------------------ */
