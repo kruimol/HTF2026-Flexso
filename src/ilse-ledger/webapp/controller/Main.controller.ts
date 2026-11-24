@@ -52,6 +52,48 @@ interface LedgerCheckData {
   message: string;
 }
 
+/** One page of the sealed ledger, as far as "since your last check" needs it. */
+interface PageData {
+  at: string;
+  entityName: string;
+  changedBy: string;
+  outsideApps: boolean;
+}
+
+/** Ilse's own actions in the ledger are not news to her. */
+const OWN_USERS = new Set(["ilse.vermeer", "ilse.ledger"]);
+
+/** Register names as Ilse knows them (same as the server). */
+const REGISTER_NAMES: Readonly<Record<string, string>> = {
+  WaterPipes: "Waterleidingen",
+  Sensors: "Sensoren",
+  Repairs: "Reparaties",
+  StockItems: "Voorraad",
+  Landmarks: "Plaatsen",
+};
+
+/** Where this browser remembers Ilse's last check (a convenience: the ledger itself is on the server). */
+const LAST_SEEN_KEY = "ilse.ledger.lastSeen";
+
+/** The ledger syncs every 15 s; the page looks every minute, like Morning Round. */
+const AUTO_REFRESH_MS = 60_000;
+
+function readLastSeen(): string | null {
+  try {
+    return (globalThis as unknown as { localStorage: { getItem(key: string): string | null } }).localStorage.getItem(LAST_SEEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeLastSeen(iso: string): void {
+  try {
+    (globalThis as unknown as { localStorage: { setItem(key: string, value: string): void } }).localStorage.setItem(LAST_SEEN_KEY, iso);
+  } catch {
+    // No storage (private mode): the strip simply starts over next visit.
+  }
+}
+
 interface MarkData {
   ID: string;
   markedBy: string | null;
@@ -90,6 +132,7 @@ interface RecordRow {
  */
 export default class Main extends Controller {
   private markDialog?: Dialog;
+  private refreshTimer?: ReturnType<typeof setInterval>;
 
   public onInit(): void {
     this.getView()?.setModel(
@@ -101,14 +144,26 @@ export default class Main extends Controller {
         summary: { suspect: "", marked: "" },
         seal: { title: "", message: "", state: "None", strip: "Information", icon: "" },
         mark: { title: "", entityName: "", recordID: "", recordLabel: "", reasons: [], reason: "" },
+        lastSeen: readLastSeen(),
+        since: { text: "", type: "Information", hasNews: false },
       }),
       "ledger",
     );
     void this.load();
+    this.refreshTimer = setInterval(() => void this.load(), AUTO_REFRESH_MS);
   }
 
   public onExit(): void {
     this.markDialog?.destroy();
+    if (this.refreshTimer) clearInterval(this.refreshTimer);
+  }
+
+  /** "Alles gezien": from now on, only what comes after this moment is new. */
+  public onSeen(): void {
+    const now = new Date().toISOString();
+    writeLastSeen(now);
+    this.getLedgerModel().setProperty("/lastSeen", now);
+    void this.load();
   }
 
   public onRefresh(): void {
@@ -248,6 +303,7 @@ export default class Main extends Controller {
         strip: check.intact ? "Success" : "Error",
         icon: check.intact ? "sap-icon://ti/shield-check" : "sap-icon://ti/shield-x",
       });
+      await this.loadSince(bundle);
       const ledgerTable = this.byId("ledgerTable") as Table | undefined;
       (ledgerTable?.getBinding("items") as ODataListBinding | undefined)?.refresh();
     } catch (error) {
@@ -256,6 +312,38 @@ export default class Main extends Controller {
     } finally {
       ledgerModel.setProperty("/busy", false);
     }
+  }
+
+  /** The strip "since your last check": how many new pages, in which registers, how many outside the apps. */
+  private async loadSince(bundle: ResourceBundle): Promise<void> {
+    const ledgerModel = this.getLedgerModel();
+    const lastSeen = ledgerModel.getProperty("/lastSeen") as string | null;
+    if (!lastSeen) {
+      // First visit: everything is new; from now on the strip counts what comes after.
+      const now = new Date().toISOString();
+      writeLastSeen(now);
+      ledgerModel.setProperty("/lastSeen", now);
+      ledgerModel.setProperty("/since", { text: t(bundle, "sinceFirst"), type: "Information", hasNews: false });
+      return;
+    }
+    const pages = (
+      await this.getODataModel()
+        .bindList("/LedgerEntries", undefined, undefined, [new Filter("at", FilterOperator.GT, lastSeen)])
+        .requestContexts(0, 1000)
+    )
+      .map((context) => context.getObject() as PageData)
+      .filter((page) => !OWN_USERS.has(page.changedBy));
+    if (pages.length === 0) {
+      ledgerModel.setProperty("/since", { text: t(bundle, "sinceNothing", [dateTime(lastSeen)]), type: "Success", hasNews: false });
+      return;
+    }
+    const registers = [...new Set(pages.map((page) => REGISTER_NAMES[page.entityName] ?? (page.entityName || "grootboek")))].join(", ");
+    const outside = pages.filter((page) => page.outsideApps).length;
+    const text = [
+      t(bundle, "sinceNews", [pages.length, dateTime(lastSeen), registers]),
+      outside > 0 ? t(bundle, "sinceOutside", [outside]) : "",
+    ].filter(Boolean).join(" ");
+    ledgerModel.setProperty("/since", { text, type: outside > 0 ? "Error" : "Warning", hasNews: true });
   }
 
   /** Findings → one row per record, in the order the server sent them (worst moment first). */

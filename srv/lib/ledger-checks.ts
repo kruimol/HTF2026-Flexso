@@ -83,6 +83,7 @@ export type Rule =
   | 'systemAccount'
   | 'noName'
   | 'nightChange'
+  | 'hiddenText'
   | 'unknownPerson'
   | 'enteredByOther'
   | 'outsideApps';
@@ -135,7 +136,7 @@ const NO_NAME = new Set(['anonymous', 'unknown', '']);
 
 /**
  * Ilse: "tussen middernacht en vier uur 's nachts, want dan werkt hier niemand". From 00:00 up to,
- * not including, 04:00 village time.
+ * not including, 04:00 village time: at 04:00 Tobin, the baker, is the first in the village to get up.
  */
 const NIGHT_FROM_HOUR = 0;
 const NIGHT_UNTIL_HOUR = 4;
@@ -193,6 +194,24 @@ function day(iso: string): string {
 
 export function dateTime(iso: string): string {
   return DATE_TIME_FORMAT.format(new Date(iso));
+}
+
+/**
+ * Letters that are not language: a Base64 word (a common way to write any text with letters and
+ * digits only) that decodes to readable text. Ilse: "Ze eindigt met vreemde letters die ik niet kan
+ * lezen." Only words of 12+ characters that decode to mostly printable text count, so ordinary
+ * words and IDs are left alone.
+ */
+export function hiddenTexts(value: string | null): Array<{ encoded: string; decoded: string }> {
+  if (!value) return [];
+  const found: Array<{ encoded: string; decoded: string }> = [];
+  for (const [encoded] of value.matchAll(/[A-Za-z0-9+/]{12,}={0,2}/g)) {
+    if (encoded.length % 4 !== 0 || !/[0-9+/=]/.test(encoded) || !/[a-z]/.test(encoded) || !/[A-Z]/.test(encoded)) continue;
+    const decoded = Buffer.from(encoded, 'base64').toString('utf8');
+    const printable = [...decoded].filter((char) => char >= ' ' && char <= '~').length;
+    if (decoded.length >= 4 && printable === decoded.length && /[A-Za-z]{3}/.test(decoded)) found.push({ encoded, decoded });
+  }
+  return found;
 }
 
 /** True between 00:00 and 04:00 village time. */
@@ -326,6 +345,10 @@ export function runChecks(registers: Registers, now: Date): Finding[] {
     const pipe = repair.pipe_ID ? pipesById.get(repair.pipe_ID) : undefined;
     const label = `${pipe?.pipeID ?? '?'}: ${repair.issue ?? ''}`.trim();
     checkDate('Repairs', repair, label, 'De reparatie', repair.repairDate);
+    for (const { encoded, decoded } of hiddenTexts(repair.issue)) {
+      add('Repairs', repair, label, 'hiddenText',
+        `De nota bevat de tekens '${encoded}'. Dat is geen taal maar Base64, een gewone manier om tekst met letters en cijfers te schrijven. Ontcijferd staat er: '${decoded}'.`);
+    }
     const name = repair.repairedBy?.trim();
     if (name) {
       const user = VILLAGERS[name];

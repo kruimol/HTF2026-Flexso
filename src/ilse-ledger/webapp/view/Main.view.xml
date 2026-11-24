@@ -37,6 +37,19 @@
         </f:title>
 
         <f:content>
+            <VBox id="contentBox">
+            <!-- What changed since Ilse last looked: she should not have to search afterwards -->
+            <MessageStrip
+                id="sinceStrip"
+                text="{ledger>/since/text}"
+                type="{ledger>/since/type}"
+                showIcon="true"
+                visible="{= !!${ledger>/since/text} }"
+                class="ilseNoPrint sapUiResponsiveMargin">
+                <link>
+                    <Link id="sinceSeenLink" text="{i18n>sinceSeen}" press=".onSeen" visible="{ledger>/since/hasNews}" />
+                </link>
+            </MessageStrip>
             <IconTabBar id="tabs" expandable="false" busy="{ledger>/busy}" headerBackgroundDesign="Transparent" backgroundDesign="Transparent" class="sapUiResponsiveContentPadding">
                 <items>
                     <!-- ====================== Suspicious records ====================== -->
@@ -107,7 +120,7 @@
                                 <Column id="colBy" width="12rem" minScreenWidth="Tablet" demandPopin="true"><Text id="colByHdr" text="{i18n>colBy}" /></Column>
                             </columns>
                             <items>
-                                <ColumnListItem id="ledgerItem" vAlign="Top" highlight="{= ${outsideApps} ? 'Error' : 'None' }">
+                                <ColumnListItem id="ledgerItem" vAlign="Top" highlight="{= ${outsideApps} ? 'Error' : (${ledger>/lastSeen} &amp;&amp; ${at} &gt; ${ledger>/lastSeen} ? 'Information' : 'None') }">
                                     <cells>
                                         <Text id="ledgerSeq" text="{seq}" />
                                         <Text id="ledgerAt" text="{ path: 'at', targetType: 'any', formatter: 'formatter.dateTime' }" />
@@ -151,6 +164,7 @@
                     </IconTabFilter>
                 </items>
             </IconTabBar>
+            </VBox>
         </f:content>
     </f:DynamicPage>
 </mvc:View>
