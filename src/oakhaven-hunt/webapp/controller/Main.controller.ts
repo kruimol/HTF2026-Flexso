@@ -125,7 +125,6 @@ function idOf(name: string): string {
  * @namespace oakhaven.hunt.controller
  */
 export default class Main extends Controller {
-  private placeDialog?: Dialog;
   private gameDialog?: Dialog;
   private board?: PipeBoard;
   private wordDialog?: Dialog;
@@ -171,7 +170,6 @@ export default class Main extends Controller {
   }
 
   public onExit(): void {
-    this.placeDialog?.destroy();
     this.gameDialog?.destroy();
     this.wordDialog?.destroy();
     this.sheepDialog?.destroy();
@@ -185,7 +183,6 @@ export default class Main extends Controller {
 
   /** From the place card: play the place's game. */
   public async onPlay(): Promise<void> {
-    this.placeDialog?.close();
     const game = this.getHuntModel().getProperty("/place/game") as string;
     if (game === "memory") {
       await this.newMemoryGame();
@@ -579,11 +576,6 @@ export default class Main extends Controller {
     return this.gameDialog;
   }
 
-  /** Collect the stamp of the open place (places without a game yet). */
-  public async onCollectStamp(): Promise<void> {
-    await this.earnStamp();
-  }
-
   private async earnStamp(): Promise<void> {
     const model = this.getHuntModel();
     const id = model.getProperty("/place/id") as string;
@@ -620,7 +612,7 @@ export default class Main extends Controller {
       view.addDependent(this.celebrationDialog);
     }
     // Close any game that is still open, so the party is in front.
-    for (const dialog of [this.gameDialog, this.wordDialog, this.sheepDialog, this.marketDialog, this.memoryDialog, this.placeDialog]) {
+    for (const dialog of [this.gameDialog, this.wordDialog, this.sheepDialog, this.marketDialog, this.memoryDialog]) {
       if (dialog?.isOpen()) dialog.close();
     }
     this.celebrationDialog.open();
@@ -628,7 +620,7 @@ export default class Main extends Controller {
 
   /** Demo only: earn the stamp of the open place without playing, and close its game. */
   public async onSkipGame(): Promise<void> {
-    for (const dialog of [this.gameDialog, this.wordDialog, this.sheepDialog, this.marketDialog, this.memoryDialog, this.placeDialog]) {
+    for (const dialog of [this.gameDialog, this.wordDialog, this.sheepDialog, this.marketDialog, this.memoryDialog]) {
       if (dialog?.isOpen()) dialog.close();
     }
     if (this.sheepTimer) clearTimeout(this.sheepTimer);
@@ -637,10 +629,6 @@ export default class Main extends Controller {
 
   public onClosePrize(): void {
     this.celebrationDialog?.close();
-  }
-
-  public onCloseDialog(): void {
-    this.placeDialog?.close();
   }
 
   /** Start over: all stamps back in the box. */
@@ -765,18 +753,7 @@ export default class Main extends Controller {
       visited: stamps.includes(id),
       game: story.game ?? "",
     });
-    const dialog = await this.getPlaceDialog();
-    dialog.open();
-  }
-
-  private async getPlaceDialog(): Promise<Dialog> {
-    if (!this.placeDialog) {
-      const view = this.getView();
-      if (!view) throw new Error("view not ready");
-      this.placeDialog = (await Fragment.load({ id: view.getId(), name: "oakhaven.hunt.view.PlaceDialog", controller: this })) as Dialog;
-      view.addDependent(this.placeDialog);
-    }
-    return this.placeDialog;
+    await this.onPlay(); // one click on the map: straight into the game of the place
   }
 
   private getHuntModel(): JSONModel {
