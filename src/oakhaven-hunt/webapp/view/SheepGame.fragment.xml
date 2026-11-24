@@ -1,0 +1,32 @@
+<core:FragmentDefinition xmlns="sap.m" xmlns:core="sap.ui.core">
+    <!-- Count the sheep at South Meadow Farms: one wave, then pick how many (Shep the dog does not count) -->
+    <Dialog id="sheepGame" title="{i18n>sheepTitle}" contentWidth="52rem" class="mrTheme sapUiContentPadding" draggable="false" resizable="false"
+        afterClose=".onSheepClosed">
+        <content>
+            <VBox id="sheepContent">
+                <Text id="sheepHowTo" text="{i18n>sheepHowTo}" class="huntSays sapUiSmallMarginBottom" />
+                <core:HTML id="sheepMeadow" content="{hunt>/sheep/svg}" sanitizeContent="false" preferDOM="false" />
+                <ObjectStatus id="sheepWatch" text="{i18n>sheepWatch}" icon="sap-icon://ti/eye" state="Information"
+                    visible="{= ${hunt>/sheep/phase} === 'running' }" class="sapUiSmallMarginTop" />
+                <VBox id="sheepAsk" visible="{= ${hunt>/sheep/phase} === 'answer' }" class="sapUiSmallMarginTop">
+                    <Title id="sheepQuestion" text="{i18n>sheepQuestion}" level="H3" class="mrHeading sapUiTinyMarginBottom" />
+                    <HBox id="sheepOptions" items="{ path: 'hunt>/sheep/options', templateShareable: false }" wrap="Wrap">
+                        <Button id="sheepOption" text="{hunt>value}" type="Emphasized" press=".onSheepAnswer" class="scOption sapUiSmallMarginEnd sapUiTinyMarginBottom" />
+                    </HBox>
+                </VBox>
+                <MessageStrip id="sheepWrong" text="{hunt>/sheep/message}" type="Warning" showIcon="true"
+                    visible="{= ${hunt>/sheep/phase} === 'wrong' }" class="sapUiSmallMarginTop" />
+                <MessageStrip id="sheepWin" text="{hunt>/sheep/message}" type="Success" showIcon="true"
+                    visible="{= ${hunt>/sheep/phase} === 'solved' }" class="sapUiSmallMarginTop" />
+            </VBox>
+        </content>
+        <buttons>
+            <Button id="sheepSkip" text="{i18n>skipDemo}" icon="sap-icon://ti/player-skip-forward" type="Attention" visible="{hunt>/demo}" press=".onSkipGame" />
+            <Button id="sheepStart" text="{i18n>sheepStart}" icon="sap-icon://ti/player-play" type="Emphasized"
+                visible="{= ${hunt>/sheep/phase} === 'ready' }" press=".onSheepStart" />
+            <Button id="sheepAgain" text="{= ${hunt>/sheep/phase} === 'solved' ? ${i18n>sheepPlayAgain} : ${i18n>sheepTryAgain} }" icon="sap-icon://ti/refresh"
+                type="Emphasized" visible="{= ${hunt>/sheep/phase} === 'wrong' || ${hunt>/sheep/phase} === 'solved' }" press=".onSheepStart" />
+            <Button id="sheepClose" text="{i18n>close}" press=".onCloseSheep" />
+        </buttons>
+    </Dialog>
+</core:FragmentDefinition>

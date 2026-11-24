@@ -1,0 +1,9 @@
+{
+  "name": "oakhaven.hunt",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The Oakhaven Hunt — a clickable village map for the children of Oakhaven",
+  "devDependencies": {
+    "ui5-tooling-transpile": "^3.13.1"
+  }
+}

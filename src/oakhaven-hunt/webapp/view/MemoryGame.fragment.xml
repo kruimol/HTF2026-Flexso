@@ -1,0 +1,21 @@
+<core:FragmentDefinition xmlns="sap.m" xmlns:core="sap.ui.core">
+    <!-- North Residential Area: find the pairs of the people and houses of Oakhaven -->
+    <Dialog id="memoryGame" title="{i18n>memoryTitle}" contentWidth="40rem" class="mrTheme sapUiContentPadding" draggable="false" resizable="false">
+        <content>
+            <VBox id="memoryContent">
+                <Text id="memoryHowTo" text="{i18n>memoryHowTo}" class="huntSays sapUiSmallMarginBottom" />
+                <core:HTML id="memoryBoard" content="{hunt>/memory/svg}" sanitizeContent="false" preferDOM="false" />
+                <HBox id="memoryStatus" justifyContent="SpaceBetween" class="sapUiSmallMarginTop">
+                    <ObjectStatus id="memoryPairs" text="{i18n>memoryPairs} {hunt>/memory/pairs} / {hunt>/memory/total}" icon="sap-icon://ti/cards" state="Success" />
+                    <ObjectStatus id="memoryTries" text="{i18n>memoryTries} {hunt>/memory/tries}" icon="sap-icon://ti/hand-click" state="Information" />
+                </HBox>
+                <MessageStrip id="memoryWin" text="{i18n>memoryWin}" type="Success" showIcon="true" visible="{hunt>/memory/solved}" class="sapUiSmallMarginTop" />
+            </VBox>
+        </content>
+        <buttons>
+            <Button id="memorySkip" text="{i18n>skipDemo}" icon="sap-icon://ti/player-skip-forward" type="Attention" visible="{hunt>/demo}" press=".onSkipGame" />
+            <Button id="memoryNew" text="{i18n>memoryNew}" icon="sap-icon://ti/refresh" press=".onNewMemory" />
+            <Button id="memoryClose" text="{i18n>close}" type="Emphasized" press=".onCloseMemory" />
+        </buttons>
+    </Dialog>
+</core:FragmentDefinition>

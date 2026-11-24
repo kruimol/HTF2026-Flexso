@@ -1,0 +1,22 @@
+<core:FragmentDefinition xmlns="sap.m" xmlns:core="sap.ui.core">
+    <!-- Central Market Square: bring every product to the stall that sells it -->
+    <Dialog id="marketGame" title="{i18n>marketTitle}" contentWidth="52rem" class="mrTheme sapUiContentPadding" draggable="false" resizable="false">
+        <content>
+            <VBox id="marketContent">
+                <Text id="marketHowTo" text="{i18n>marketHowTo}" class="huntSays sapUiSmallMarginBottom" />
+                <core:HTML id="marketBoard" content="{hunt>/market/svg}" sanitizeContent="false" preferDOM="false" />
+                <HBox id="marketStatus" alignItems="Center" class="sapUiSmallMarginTop">
+                    <ObjectStatus id="marketCount" text="{hunt>/market/done} / {hunt>/market/total}" icon="sap-icon://ti/building-store" state="Information" class="sapUiSmallMarginEnd" />
+                    <ObjectStatus id="marketMessage" text="{hunt>/market/message}" state="{= ${hunt>/market/wrong} ? 'Warning' : 'Success' }"
+                        icon="{= ${hunt>/market/wrong} ? 'sap-icon://ti/mood-confuzed' : 'sap-icon://ti/mood-smile' }" visible="{= !!${hunt>/market/message} }" />
+                </HBox>
+                <MessageStrip id="marketWin" text="{i18n>marketWin}" type="Success" showIcon="true" visible="{hunt>/market/solved}" class="sapUiSmallMarginTop" />
+            </VBox>
+        </content>
+        <buttons>
+            <Button id="marketSkip" text="{i18n>skipDemo}" icon="sap-icon://ti/player-skip-forward" type="Attention" visible="{hunt>/demo}" press=".onSkipGame" />
+            <Button id="marketNew" text="{i18n>marketNew}" icon="sap-icon://ti/refresh" press=".onNewMarket" />
+            <Button id="marketClose" text="{i18n>close}" type="Emphasized" press=".onCloseMarket" />
+        </buttons>
+    </Dialog>
+</core:FragmentDefinition>
