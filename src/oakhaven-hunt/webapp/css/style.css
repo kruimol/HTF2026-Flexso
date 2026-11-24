@@ -300,22 +300,3 @@ body {
 .mrAwning0Line { stroke: #e98c8c; }
 .mrAwning1Line { stroke: #7fb2e5; }
 .mrAwning2Line { stroke: #d4a24c; }
-
-/* ---------- The maze (Deepwood Forest) ---------- */
-.fmWrap svg { display: block; width: 100%; height: auto; outline: none; border-radius: 0.75rem; }
-.fmWrap svg:focus-visible { box-shadow: 0 0 0 3px #d4a24c; }
-.fmGround { fill: #1f2e1a; }
-.fmCell { fill: transparent; cursor: pointer; }
-.fmCell:hover { fill: rgba(212, 162, 76, 0.1); }
-.fmWall { stroke: #2f5a36; stroke-width: 16; stroke-linecap: round; }
-.fmTree { fill: #8fd3a5; stroke: #3f7a52; stroke-width: 3; pointer-events: none; }
-.fmTrail { fill: none; stroke: #d4a24c; stroke-width: 6; stroke-dasharray: 2 12; stroke-linecap: round; pointer-events: none; }
-.fmWalker, .fmPage, .fmInk { pointer-events: none; }
-.fmGlow { fill: rgba(212, 162, 76, 0.25); }
-.fmHead { fill: #f1d9a6; }
-.fmBody { fill: #c0703f; }
-.fmArm { stroke: #f1d9a6; stroke-width: 4; }
-.fmLantern { fill: #ffd36b; stroke: #7a5121; stroke-width: 2; }
-.fmPage { fill: #f3e6c8; stroke: #7a5121; stroke-width: 2; }
-.fmInk { stroke: #5a2f14; stroke-width: 2; }
-.fmArrow { min-width: 3rem; }
