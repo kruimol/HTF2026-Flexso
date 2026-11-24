@@ -31,7 +31,11 @@
         <f:content>
             <VBox id="content" class="huntContent sapUiResponsiveContentPadding">
                 <Text id="intro" text="{i18n>intro}" class="huntIntro sapUiSmallMarginBottom" />
-                <MessageStrip id="allFoundStrip" text="{i18n>allFound}" type="Success" showIcon="true" visible="{hunt>/allFound}" class="sapUiSmallMarginBottom" />
+                <MessageStrip id="allFoundStrip" text="{i18n>allFound}" type="Success" showIcon="true" visible="{hunt>/allFound}" class="sapUiSmallMarginBottom">
+                    <link>
+                        <Link id="prizeLink" text="{i18n>prizeShow}" press=".onShowPrize" />
+                    </link>
+                </MessageStrip>
                 <core:HTML id="map" sanitizeContent="false" preferDOM="false" />
             </VBox>
         </f:content>

@@ -12,6 +12,7 @@ import { buildWordGridSvg, newWordGrid, wordAt, type WordGrid } from "../model/w
 import { answerOptions, buildMeadowSvg, newWave, type Wave } from "../model/sheepCount";
 import { buildMarketSvg, newMarket, productOf, stallOf, type MarketGame, type StallId } from "../model/marketConnect";
 import { buildMemorySvg, newDeck } from "../model/memoryGame";
+import { buildCelebrationSvg, prizeCode } from "../model/celebration";
 import type { Button$PressEvent } from "sap/m/Button";
 import type Button from "sap/m/Button";
 import { PLACE_STORIES, type PlaceStory } from "../model/places";
@@ -36,6 +37,9 @@ const WORD_GRID_SIZE = 10;
 
 /** Memory: how long two cards that are not a pair stay open. */
 const MEMORY_PEEK_MS = 1100;
+
+/** The prize code of this child (pizza and a balloon at the fair), kept with the stamps. */
+const PRIZE_KEY = "oakhaven.hunt.prize";
 
 /** Stamps are kept in this browser: a child's own progress (a convenience, not village data). */
 const STAMPS_KEY = "oakhaven.hunt.stamps";
@@ -84,6 +88,22 @@ function writeStamps(stamps: readonly string[]): void {
   }
 }
 
+function readPrize(): string {
+  try {
+    return storage()?.getItem(PRIZE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writePrize(code: string): void {
+  try {
+    storage()?.setItem(PRIZE_KEY, code);
+  } catch {
+    // No storage: the code lasts until the page is closed.
+  }
+}
+
 function idOf(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
@@ -109,6 +129,7 @@ export default class Main extends Controller {
   private matched: Record<string, StallId> = {};
   private picked: string | null = null;
   private memoryDialog?: Dialog;
+  private celebrationDialog?: Dialog;
   private deck: string[] = [];
   private memOpen: number[] = [];
   private memMatched: number[] = [];
@@ -130,6 +151,7 @@ export default class Main extends Controller {
         sheep: { svg: "", phase: "ready", options: [], message: "" },
         market: { svg: "", done: 0, total: 0, solved: false, message: "", wrong: false },
         memory: { svg: "", tries: 0, pairs: 0, total: 0, solved: false },
+        prize: { code: readPrize(), svg: "" },
       }),
       "hunt",
     );
@@ -143,6 +165,7 @@ export default class Main extends Controller {
     this.sheepDialog?.destroy();
     this.marketDialog?.destroy();
     this.memoryDialog?.destroy();
+    this.celebrationDialog?.destroy();
     if (this.sheepTimer) clearTimeout(this.sheepTimer);
   }
 
@@ -560,6 +583,39 @@ export default class Main extends Controller {
     model.setProperty("/place/visited", true);
     MessageToast.show(this.text(await this.getBundle(), "stampToast", [model.getProperty("/place/name") as string]));
     this.render(await this.getBundle());
+    // The last stamp: the party! Balloons, Tobin's pizza and a voucher for the fair.
+    if (PLACE_STORIES.filter((story) => story.game).every((story) => next.includes(idOf(story.name)))) {
+      setTimeout(() => void this.onShowPrize(), 900);
+    }
+  }
+
+  /* ------------------------------ The prize: pizza and balloons ------------------------------ */
+
+  /** Opens the party screen with the voucher (the code is made once and kept). */
+  public async onShowPrize(): Promise<void> {
+    const model = this.getHuntModel();
+    let code = model.getProperty("/prize/code") as string;
+    if (!code) {
+      code = prizeCode();
+      writePrize(code);
+      model.setProperty("/prize/code", code);
+    }
+    model.setProperty("/prize/svg", `<div class="ceWrap">${buildCelebrationSvg(this.text(await this.getBundle(), "prizeTitle"))}</div>`);
+    if (!this.celebrationDialog) {
+      const view = this.getView();
+      if (!view) return;
+      this.celebrationDialog = (await Fragment.load({ id: view.getId(), name: "oakhaven.hunt.view.Celebration", controller: this })) as Dialog;
+      view.addDependent(this.celebrationDialog);
+    }
+    // Close any game that is still open, so the party is in front.
+    for (const dialog of [this.gameDialog, this.wordDialog, this.sheepDialog, this.marketDialog, this.memoryDialog, this.placeDialog]) {
+      if (dialog?.isOpen()) dialog.close();
+    }
+    this.celebrationDialog.open();
+  }
+
+  public onClosePrize(): void {
+    this.celebrationDialog?.close();
   }
 
   public onCloseDialog(): void {
@@ -569,7 +625,9 @@ export default class Main extends Controller {
   /** Start over: all stamps back in the box. */
   public async onReset(): Promise<void> {
     writeStamps([]);
+    writePrize("");
     this.getHuntModel().setProperty("/stamps", []);
+    this.getHuntModel().setProperty("/prize/code", "");
     this.render(await this.getBundle());
   }
 

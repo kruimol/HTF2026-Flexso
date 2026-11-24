@@ -332,3 +332,30 @@ body {
 
 /* Places without a game: scenery on the map, not part of the hunt */
 .huntScenery { pointer-events: none; }
+
+/* ---------- The prize: pizza and balloons ---------- */
+.ceWrap { width: 100%; }
+.ceWrap svg { display: block; width: 100%; height: auto; }
+.ceString { fill: none; stroke: #f3e6c8; stroke-width: 2; }
+.ceRed { fill: #e0605a; }
+.ceBlue { fill: #3f8fd6; }
+.ceGold { fill: #d4a24c; }
+.ceGreen { fill: #5d9a3c; }
+.ceLilac { fill: #b9a2d8; }
+.ceShine { fill: rgba(255, 255, 255, 0.4); }
+.ceCrust { fill: #d9a35b; stroke: #7a5121; stroke-width: 4; }
+.ceSauce { fill: #c0392b; }
+.ceCheese { fill: #f6d77a; }
+.cePepperoni { fill: #9b2d20; stroke: #6d1d14; stroke-width: 2; }
+.ceBasil { fill: #3f7a32; }
+.ceSlice { stroke: #7a5121; stroke-width: 3; opacity: 0.6; }
+/* Balloons float up into place and keep bobbing; the pizza turns slowly. */
+.ceBalloon { animation: ceRise 1.6s ease-out both, ceBob 2.4s ease-in-out 1.6s infinite; }
+@keyframes ceRise { from { transform: translateY(220px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes ceBob { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(var(--sway, 8px), -14px); } }
+.cePizza { animation: ceSpin 24s linear infinite; }
+@keyframes ceSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ceBalloon, .cePizza { animation: none; } }
+.ceVoucher { border: 2px dashed var(--mrGold); border-radius: 0.75rem; padding: 0.75rem 1.5rem; background: rgba(212, 162, 76, 0.08); }
+.ceWhat { font-size: 1.15rem; font-weight: bold; color: var(--mrCreamSolid); }
+.ceCode { font-family: "Courier Prime", "Courier New", monospace; font-size: 2rem; font-weight: bold; letter-spacing: 4px; color: var(--mrGold); }
