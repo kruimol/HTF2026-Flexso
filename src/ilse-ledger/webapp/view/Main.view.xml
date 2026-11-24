@@ -51,7 +51,7 @@
                     <Link id="sinceSeenLink" text="{i18n>sinceSeen}" press=".onSeen" visible="{ledger>/since/hasNews}" />
                 </link>
             </MessageStrip>
-            <IconTabBar id="tabs" expandable="false" busy="{ledger>/busy}" headerBackgroundDesign="Transparent" backgroundDesign="Transparent" class="sapUiResponsiveContentPadding">
+            <IconTabBar id="tabs" selectedKey="{ledger>/tab}" expandable="false" busy="{ledger>/busy}" headerBackgroundDesign="Transparent" backgroundDesign="Transparent" class="sapUiResponsiveContentPadding">
                 <items>
                     <!-- ====================== Suspicious records ====================== -->
                     <IconTabFilter id="tabFindings" icon="sap-icon://ti/alert-triangle" text="{i18n>tabFindings}" count="{= ${ledger>/records}.length }" key="findings">
@@ -66,7 +66,7 @@
                             <items>
                                 <ColumnListItem id="findingItem" vAlign="Top" highlight="{= ${ledger>untrusted} ? 'Error' : 'Warning' }">
                                     <cells>
-                                        <ObjectIdentifier id="findingRecord" title="{ledger>recordLabel}" text="{ledger>register}" />
+                                        <ObjectIdentifier id="findingRecord" title="{ledger>recordLabel}" text="{ledger>register}" titleActive="true" titlePress=".onShowHistory" tooltip="{i18n>bookHistory}" />
                                         <VBox id="findingReasons" items="{ path: 'ledger>reasons', templateShareable: false }">
                                             <VBox id="findingReason" class="sapUiTinyMarginBottom">
                                                 <ObjectStatus id="findingRule" text="{ledger>ruleText}" icon="{ledger>icon}" state="{ledger>state}" />
@@ -130,9 +130,32 @@
                     <IconTabFilter id="tabLedger" icon="sap-icon://ti/book" text="{i18n>tabLedger}" key="ledger">
                         <Text id="ledgerIntro" text="{i18n>ledgerIntro}" class="ilseIntro sapUiSmallMarginBottom" />
                         <MessageStrip id="sealStrip" text="{ledger>/seal/message}" type="{ledger>/seal/strip}" showIcon="true" class="sapUiSmallMarginBottom" />
+                        <!-- Browse the ledger like a book: filters, then 20 pages at a time -->
+                        <OverflowToolbar id="bookFilters" design="Transparent" class="ilseNoPrint">
+                            <Select id="bookRegister" selectedKey="{ledger>/book/register}" change=".onBookFilter" items="{ path: 'ledger>/book/registers', templateShareable: false }">
+                                <core:Item id="bookRegisterItem" key="{ledger>key}" text="{ledger>text}" />
+                            </Select>
+                            <SearchField id="bookSearch" value="{ledger>/book/search}" placeholder="{i18n>bookSearch}" liveChange=".onBookFilter" search=".onBookFilter" width="16rem" />
+                            <CheckBox id="bookOutside" text="{i18n>bookOutsideOnly}" selected="{ledger>/book/outsideOnly}" select=".onBookFilter" />
+                            <CheckBox id="bookNew" text="{i18n>bookNewOnly}" selected="{ledger>/book/newOnly}" select=".onBookFilter" />
+                        </OverflowToolbar>
+                        <MessageStrip id="bookRecordStrip" type="Information" showIcon="true" showCloseButton="true"
+                            text="{ledger>/book/recordText}" visible="{= !!${ledger>/book/recordID} }" close=".onBookClearRecord"
+                            class="sapUiTinyMarginBottom ilseNoPrint" />
+                        <OverflowToolbar id="bookNav" design="Transparent" class="ilseNoPrint">
+                            <Button id="bookFirst" icon="sap-icon://ti/chevrons-left" tooltip="{i18n>bookFirst}" press=".onBookFirst" enabled="{ledger>/book/hasPrev}" />
+                            <Button id="bookPrev" icon="sap-icon://ti/chevron-left" text="{i18n>bookPrev}" press=".onBookPrev" enabled="{ledger>/book/hasPrev}" />
+                            <ToolbarSpacer id="bookSpacer1" />
+                            <Text id="bookPosition" text="{ledger>/book/position}" class="mrHeading" />
+                            <ToolbarSpacer id="bookSpacer2" />
+                            <Label id="bookGotoLabel" text="{i18n>bookGoto}" labelFor="bookGoto" />
+                            <Input id="bookGoto" type="Number" width="6rem" value="{ledger>/book/goto}" submit=".onBookGoto" />
+                            <Button id="bookNext" icon="sap-icon://ti/chevron-right" iconFirst="false" text="{i18n>bookNext}" press=".onBookNext" enabled="{ledger>/book/hasNext}" />
+                            <Button id="bookLast" icon="sap-icon://ti/chevrons-right" tooltip="{i18n>bookLast}" press=".onBookLast" enabled="{ledger>/book/hasNext}" />
+                        </OverflowToolbar>
                         <Table id="ledgerTable"
-                            items="{ path: '/LedgerEntries', parameters: { $orderby: 'seq desc' }, templateShareable: false }"
-                            noDataText="{i18n>noEntries}" growing="true" growingThreshold="50" popinLayout="GridSmall">
+                            items="{ path: 'ledger>/book/view', templateShareable: false }"
+                            noDataText="{i18n>noEntries}" popinLayout="GridSmall">
                             <columns>
                                 <Column id="colPage" width="4rem"><Text id="colPageHdr" text="{i18n>colPage}" /></Column>
                                 <Column id="colWhen" width="12rem"><Text id="colWhenHdr" text="{i18n>colWhen}" /></Column>
@@ -142,16 +165,19 @@
                                 <Column id="colBy" width="12rem" minScreenWidth="Tablet" demandPopin="true"><Text id="colByHdr" text="{i18n>colBy}" /></Column>
                             </columns>
                             <items>
-                                <ColumnListItem id="ledgerItem" vAlign="Top" highlight="{= ${outsideApps} ? 'Error' : (${ledger>/lastSeen} &amp;&amp; ${at} &gt; ${ledger>/lastSeen} ? 'Information' : 'None') }">
+                                <ColumnListItem id="ledgerItem" vAlign="Top" highlight="{= ${ledger>outsideApps} ? 'Error' : (${ledger>isNew} ? 'Information' : 'None') }">
                                     <cells>
-                                        <Text id="ledgerSeq" text="{seq}" />
-                                        <Text id="ledgerAt" text="{ path: 'at', targetType: 'any', formatter: 'formatter.dateTime' }" />
-                                        <Text id="ledgerRecord" text="{recordLabel}" />
-                                        <Text id="ledgerField" text="{field}" />
-                                        <Text id="ledgerChange" text="{ parts: ['i18n>change', 'oldValue', 'newValue', 'i18n>empty'], formatter: '.formatChange' }" />
+                                        <Text id="ledgerSeq" text="{ledger>seq}" />
+                                        <Text id="ledgerAt" text="{ path: 'ledger>at', formatter: 'formatter.dateTime' }" />
+                                        <VBox id="ledgerRecordBox">
+                                            <Link id="ledgerRecord" text="{ledger>recordLabel}" press=".onBookShowRecord" enabled="{= !!${ledger>recordID} }" tooltip="{i18n>bookHistory}" />
+                                            <Text id="ledgerRegister" text="{ledger>registerName}" />
+                                        </VBox>
+                                        <Text id="ledgerField" text="{ledger>field}" />
+                                        <Text id="ledgerChange" text="{ledger>changeText}" />
                                         <VBox id="ledgerByBox">
-                                            <Text id="ledgerBy" text="{changedBy}" />
-                                            <ObjectStatus id="ledgerOutside" text="{i18n>outsideApps}" icon="sap-icon://ti/door-exit" state="Error" visible="{= !!${outsideApps} }" />
+                                            <Text id="ledgerBy" text="{ledger>changedBy}" />
+                                            <ObjectStatus id="ledgerOutside" text="{i18n>outsideApps}" icon="sap-icon://ti/door-exit" state="Error" visible="{= !!${ledger>outsideApps} }" />
                                         </VBox>
                                     </cells>
                                 </ColumnListItem>

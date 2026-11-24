@@ -12,7 +12,9 @@ service LedgerService @(path: 'ledger', impl: 'srv/ledger-service') {
   @readonly
   entity TrustMarks    as projection on db.TrustMarks;
 
+  /** Ilse browses the whole ledger at once (see the book in the app): no 1000-row cap. */
   @readonly
+  @cds.query.limit: { default: 1000, max: 100000 }
   entity LedgerEntries as projection on db.LedgerEntries;
 
   /** One suspicious record, with the rule it breaks in plain words. */

@@ -4,16 +4,17 @@ import MessageToast from "sap/m/MessageToast";
 import type Button from "sap/m/Button";
 import type { Button$PressEvent } from "sap/m/Button";
 import type Dialog from "sap/m/Dialog";
-import type Table from "sap/m/Table";
 import Fragment from "sap/ui/core/Fragment";
 import Controller from "sap/ui/core/mvc/Controller";
 import type ResourceBundle from "sap/base/i18n/ResourceBundle";
 import type ResourceModel from "sap/ui/model/resource/ResourceModel";
 import type ODataModel from "sap/ui/model/odata/v4/ODataModel";
-import type ODataListBinding from "sap/ui/model/odata/v4/ODataListBinding";
 import JSONModel from "sap/ui/model/json/JSONModel";
 import Filter from "sap/ui/model/Filter";
 import FilterOperator from "sap/ui/model/FilterOperator";
+import Sorter from "sap/ui/model/Sorter";
+import type ObjectIdentifier from "sap/m/ObjectIdentifier";
+import type Link from "sap/m/Link";
 import { dateTime, ruleIcon } from "../model/formatter";
 
 /** Text from the i18n bundle; the key itself when it is missing. */
@@ -52,13 +53,29 @@ interface LedgerCheckData {
   message: string;
 }
 
-/** One page of the sealed ledger, as far as "since your last check" needs it. */
+/** One page of the sealed ledger. */
 interface PageData {
+  seq: number;
   at: string;
   entityName: string;
+  recordID: string | null;
+  recordLabel: string;
+  field: string;
+  oldValue: string | null;
+  newValue: string | null;
   changedBy: string;
   outsideApps: boolean;
 }
+
+/** A page as the book shows it. */
+interface BookPage extends PageData {
+  registerName: string;
+  changeText: string;
+  isNew: boolean;
+}
+
+/** How many pages the book shows at once. */
+const BOOK_SPREAD = 20;
 
 /** Ilse's own actions in the ledger are not news to her. */
 const OWN_USERS = new Set(["ilse.vermeer", "ilse.ledger"]);
@@ -137,6 +154,7 @@ interface RecordRow {
  */
 export default class Main extends Controller {
   private markDialog?: Dialog;
+  private bundle?: ResourceBundle;
   private refreshTimer?: ReturnType<typeof setInterval>;
 
   public onInit(): void {
@@ -151,6 +169,11 @@ export default class Main extends Controller {
         seal: { title: "", message: "", state: "None", strip: "Information", icon: "" },
         mark: { title: "", entityName: "", recordID: "", recordLabel: "", reasons: [], reason: "" },
         lastSeen: readLastSeen(),
+        tab: "findings",
+        book: {
+          pages: [], view: [], start: -1, register: "", search: "", outsideOnly: false, newOnly: false,
+          recordID: "", recordText: "", registers: [], position: "", hasPrev: false, hasNext: false, goto: "",
+        },
         since: { text: "", type: "Information", hasNews: false },
       }),
       "ledger",
@@ -170,6 +193,137 @@ export default class Main extends Controller {
     writeLastSeen(now);
     this.getLedgerModel().setProperty("/lastSeen", now);
     void this.load();
+  }
+
+  /* ------------------------------ Browsing the ledger ------------------------------ */
+
+  public onBookFilter(): void {
+    this.getLedgerModel().setProperty("/book/start", -1); // a new selection opens at its last pages
+    this.renderBook();
+  }
+
+  public onBookFirst(): void {
+    this.getLedgerModel().setProperty("/book/start", 0);
+    this.renderBook();
+  }
+
+  public onBookPrev(): void {
+    const model = this.getLedgerModel();
+    model.setProperty("/book/start", Math.max(0, (model.getProperty("/book/start") as number) - BOOK_SPREAD));
+    this.renderBook();
+  }
+
+  public onBookNext(): void {
+    const model = this.getLedgerModel();
+    model.setProperty("/book/start", (model.getProperty("/book/start") as number) + BOOK_SPREAD);
+    this.renderBook();
+  }
+
+  public onBookLast(): void {
+    this.getLedgerModel().setProperty("/book/start", -1);
+    this.renderBook();
+  }
+
+  /** "Ga naar blz. 37": opens the spread that holds page 37 (or the first page after it). */
+  public onBookGoto(): void {
+    const model = this.getLedgerModel();
+    const wanted = Number(model.getProperty("/book/goto"));
+    if (!Number.isFinite(wanted)) return;
+    const pages = this.filteredPages();
+    let index = pages.findIndex((page) => page.seq >= wanted);
+    if (index < 0) index = pages.length - 1;
+    model.setProperty("/book/start", Math.max(0, Math.floor(index / BOOK_SPREAD) * BOOK_SPREAD));
+    this.renderBook();
+  }
+
+  /** Click a record in the book: browse only its pages. */
+  public onBookShowRecord(event: { getSource(): unknown }): void {
+    const page = (event.getSource() as Link).getBindingContext("ledger")?.getObject() as BookPage | undefined;
+    if (page?.recordID) void this.showHistory(page.recordID, page.recordLabel, page.registerName);
+  }
+
+  /** Click a suspicious record: open its history in the ledger. */
+  public onShowHistory(event: { getSource(): unknown }): void {
+    const row = (event.getSource() as ObjectIdentifier).getBindingContext("ledger")?.getObject() as RecordRow | undefined;
+    if (row) void this.showHistory(row.recordID, row.recordLabel, row.register);
+  }
+
+  public onBookClearRecord(): void {
+    const model = this.getLedgerModel();
+    model.setProperty("/book/recordID", "");
+    model.setProperty("/book/recordText", "");
+    this.onBookFilter();
+  }
+
+  private async showHistory(recordID: string, label: string, register: string): Promise<void> {
+    const model = this.getLedgerModel();
+    model.setProperty("/book/recordID", recordID);
+    model.setProperty("/book/recordText", t(await this.getBundle(), "bookRecord", [label, register]));
+    model.setProperty("/book/register", "");
+    model.setProperty("/book/search", "");
+    model.setProperty("/book/outsideOnly", false);
+    model.setProperty("/book/newOnly", false);
+    model.setProperty("/tab", "ledger");
+    this.onBookFilter();
+  }
+
+  /** The pages that match the filters, oldest first (like a book). */
+  private filteredPages(): BookPage[] {
+    const book = this.getLedgerModel().getProperty("/book") as {
+      pages: BookPage[]; register: string; search: string; outsideOnly: boolean; newOnly: boolean; recordID: string;
+    };
+    const search = book.search.trim().toLowerCase();
+    return book.pages.filter((page) =>
+      (!book.recordID || page.recordID === book.recordID) &&
+      (!book.register || (book.register === "-" ? !page.entityName : page.entityName === book.register)) &&
+      (!search || page.recordLabel.toLowerCase().includes(search)) &&
+      (!book.outsideOnly || page.outsideApps) &&
+      (!book.newOnly || page.isNew));
+  }
+
+  /** Shows one spread of 20 pages; start -1 means "the last pages". */
+  private renderBook(): void {
+    const model = this.getLedgerModel();
+    const bundle = this.bundle;
+    const pages = this.filteredPages();
+    const total = (model.getProperty("/book/pages") as BookPage[]).length;
+    const lastStart = Math.max(0, Math.floor((pages.length - 1) / BOOK_SPREAD) * BOOK_SPREAD);
+    let start = model.getProperty("/book/start") as number;
+    if (start < 0 || start > lastStart) start = lastStart;
+    const view = pages.slice(start, start + BOOK_SPREAD);
+    model.setProperty("/book/start", start);
+    model.setProperty("/book/view", view);
+    model.setProperty("/book/hasPrev", start > 0);
+    model.setProperty("/book/hasNext", start + BOOK_SPREAD < pages.length);
+    const filtered = pages.length !== total;
+    model.setProperty("/book/position", !bundle ? "" : view.length === 0 ? t(bundle, "bookEmpty") : t(bundle,
+      filtered ? "bookPositionFiltered" : "bookPosition",
+      [view[0].seq, view[view.length - 1].seq, filtered ? pages.length : total]));
+  }
+
+  /** Reads the whole ledger (oldest first) for the book. */
+  private async loadBook(bundle: ResourceBundle): Promise<void> {
+    const model = this.getLedgerModel();
+    const lastSeen = model.getProperty("/lastSeen") as string | null;
+    const empty = t(bundle, "empty");
+    const pages = (
+      await this.getODataModel().bindList("/LedgerEntries", undefined, [new Sorter("seq")]).requestContexts(0, 100000)
+    ).map((context) => {
+      const page = context.getObject() as PageData;
+      return {
+        ...page,
+        registerName: REGISTER_NAMES[page.entityName] ?? "",
+        changeText: t(bundle, "change", [page.oldValue || empty, page.newValue || empty]),
+        isNew: Boolean(lastSeen && page.at > lastSeen && !OWN_USERS.has(page.changedBy)),
+      } satisfies BookPage;
+    });
+    model.setProperty("/book/pages", pages);
+    model.setProperty("/book/registers", [
+      { key: "", text: t(bundle, "bookAll") },
+      ...Object.entries(REGISTER_NAMES).map(([key, text]) => ({ key, text })),
+      { key: "-", text: t(bundle, "bookLedgerOnly") },
+    ]);
+    this.renderBook();
   }
 
   public onRefresh(): void {
@@ -266,6 +420,7 @@ export default class Main extends Controller {
     try {
       const model = this.getODataModel();
       const bundle = await this.getBundle();
+      this.bundle = bundle;
       // findings() first: it brings the sealed ledger up to date before anything else is read.
       const findings = (await model.bindList("/findings()").requestContexts(0, 1000)).map(
         (context) => context.getObject() as FindingData,
@@ -316,8 +471,7 @@ export default class Main extends Controller {
         icon: check.intact ? "sap-icon://ti/shield-check" : "sap-icon://ti/shield-x",
       });
       await this.loadSince(bundle);
-      const ledgerTable = this.byId("ledgerTable") as Table | undefined;
-      (ledgerTable?.getBinding("items") as ODataListBinding | undefined)?.refresh();
+      await this.loadBook(bundle);
     } catch (error) {
       Log.error("loading the ledger failed", String(error));
       MessageBox.error(t(await this.getBundle(), "loadError"));
