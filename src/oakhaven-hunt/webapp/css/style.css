@@ -220,3 +220,19 @@ body {
     padding: 0.35rem 0.75rem;
 }
 .huntFolk { gap: 0.75rem; }
+
+/* ---------- The pipe puzzle (Silverbrook Spring) ---------- */
+.pzWrap svg { display: block; width: 100%; height: auto; max-height: 60vh; }
+.pzBoard { fill: #22170e; stroke: var(--mrCopperLine); stroke-width: 3; }
+.pzCell { fill: rgba(243, 230, 200, 0.06); stroke: rgba(192, 112, 63, 0.25); stroke-width: 2; }
+.pzTile { cursor: pointer; outline: none; }
+.pzTile:hover .pzCell,
+.pzTile:focus-visible .pzCell { fill: rgba(212, 162, 76, 0.18); stroke: #d4a24c; stroke-width: 3; }
+.pzCasing { fill: none; stroke: #1a120b; stroke-width: 30; stroke-linecap: round; }
+.pzPipe { fill: none; stroke: #8d939b; stroke-width: 18; stroke-linecap: round; }
+.pzWet { stroke: #3f8fd6; }
+.pzPipeJoint, .pzPipeEnd { fill: #8d939b; stroke: #1a120b; stroke-width: 4; }
+.pzWetJoint, .pzWetEnd { fill: #3f8fd6; stroke: #1a120b; stroke-width: 4; }
+.pzLabel { fill: #f3e6c8; font-family: Cinzel, Georgia, serif; font-size: 15px; font-weight: bold; text-anchor: middle; }
+.pzVillage { opacity: 0.55; }
+.pzVillageWet { opacity: 1; }

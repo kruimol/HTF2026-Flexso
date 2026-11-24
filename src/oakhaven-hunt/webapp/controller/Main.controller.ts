@@ -6,7 +6,8 @@ import type Dialog from "sap/m/Dialog";
 import type HTML from "sap/ui/core/HTML";
 import type ResourceBundle from "sap/base/i18n/ResourceBundle";
 import type ResourceModel from "sap/ui/model/resource/ResourceModel";
-import { buildHuntMap, buildPlaceArt, type HuntPipe, type HuntPlace } from "../model/huntMap";
+import { buildHuntMap, buildPlaceArt, DRAWINGS, type HuntPipe, type HuntPlace } from "../model/huntMap";
+import { buildBoardSvg, isSolved, newPuzzle, turnCell, type PipeBoard } from "../model/pipePuzzle";
 import { PLACE_STORIES, type PlaceStory } from "../model/places";
 
 /** Where the places lie when the village data cannot be read (same as db/data Landmarks). */
@@ -20,6 +21,9 @@ const FALLBACK_CELLS: Readonly<Record<string, readonly string[]>> = {
   "South Meadow Farms": ["E1"],
   "Deepwood Forest": ["C8", "B8", "A6"],
 };
+
+/** The pipe puzzle: 5 × 5 is right for children; small enough for a phone too. */
+const PUZZLE_SIZE = 5;
 
 /** Stamps are kept in this browser: a child's own progress (a convenience, not village data). */
 const STAMPS_KEY = "oakhaven.hunt.stamps";
@@ -80,6 +84,8 @@ function idOf(name: string): string {
  */
 export default class Main extends Controller {
   private placeDialog?: Dialog;
+  private gameDialog?: Dialog;
+  private board?: PipeBoard;
   private cells = new Map<string, string[]>();
   private pipes: HuntPipe[] = [];
   private listening = false;
@@ -91,7 +97,8 @@ export default class Main extends Controller {
         stamps,
         progress: "",
         allFound: false,
-        place: { id: "", name: "", about: "", art: "", villagers: [], hasVillagers: false, mystery: "", visited: false },
+        place: { id: "", name: "", about: "", art: "", villagers: [], hasVillagers: false, mystery: "", visited: false, game: "" },
+        game: { svg: "", moves: 0, solved: false },
       }),
       "hunt",
     );
@@ -100,10 +107,81 @@ export default class Main extends Controller {
 
   public onExit(): void {
     this.placeDialog?.destroy();
+    this.gameDialog?.destroy();
   }
 
-  /** Collect the stamp of the open place. */
+  /* ------------------------------ The pipe puzzle (Silverbrook Spring) ------------------------------ */
+
+  /** From the place card: play the place's game. */
+  public async onPlay(): Promise<void> {
+    this.placeDialog?.close();
+    this.newBoard();
+    (await this.getGameDialog()).open();
+  }
+
+  public onNewPuzzle(): void {
+    this.newBoard();
+  }
+
+  public onCloseGame(): void {
+    this.gameDialog?.close();
+  }
+
+  private newBoard(): void {
+    this.board = newPuzzle(PUZZLE_SIZE, Math.floor(Math.random() * 1_000_000) + 1);
+    const model = this.getHuntModel();
+    model.setProperty("/game/moves", 0);
+    model.setProperty("/game/solved", false);
+    void this.drawBoard();
+  }
+
+  /** A pipe was clicked: turn it, and see whether the water reaches Oakhaven. */
+  private async turnPipe(index: number): Promise<void> {
+    const model = this.getHuntModel();
+    if (!this.board || model.getProperty("/game/solved")) return;
+    this.board = turnCell(this.board, index);
+    model.setProperty("/game/moves", (model.getProperty("/game/moves") as number) + 1);
+    if (isSolved(this.board)) {
+      model.setProperty("/game/solved", true);
+      await this.earnStamp(); // solving the puzzle earns the stamp of the spring
+    }
+    await this.drawBoard();
+  }
+
+  private async drawBoard(): Promise<void> {
+    if (!this.board) return;
+    const bundle = await this.getBundle();
+    this.getHuntModel().setProperty("/game/svg", `<div class="pzWrap">${buildBoardSvg(this.board, {
+      title: this.text(bundle, "pipesTitle"),
+      turn: this.text(bundle, "pipesTurn"),
+      spring: this.text(bundle, "pipesSpring"),
+      village: this.text(bundle, "pipesVillage"),
+    }, DRAWINGS.spring(), DRAWINGS.residential())}</div>`);
+    const html = this.byId("pipeBoard") as HTML | undefined;
+    if (html) {
+      // The board is re-drawn after every turn: listen on the new SVG as soon as it is there.
+      setTimeout(() => this.listenFor(html, "data-cell", (value) => void this.turnPipe(Number(value))), 0);
+    }
+  }
+
+  private async getGameDialog(): Promise<Dialog> {
+    if (!this.gameDialog) {
+      const view = this.getView();
+      if (!view) throw new Error("view not ready");
+      this.gameDialog = (await Fragment.load({ id: view.getId(), name: "oakhaven.hunt.view.PipeGame", controller: this })) as Dialog;
+      view.addDependent(this.gameDialog);
+      const html = this.byId("pipeBoard") as HTML | undefined;
+      html?.attachAfterRendering(() => this.listenFor(html, "data-cell", (value) => void this.turnPipe(Number(value))));
+    }
+    return this.gameDialog;
+  }
+
+  /** Collect the stamp of the open place (places without a game yet). */
   public async onCollectStamp(): Promise<void> {
+    await this.earnStamp();
+  }
+
+  private async earnStamp(): Promise<void> {
     const model = this.getHuntModel();
     const id = model.getProperty("/place/id") as string;
     const stamps = model.getProperty("/stamps") as string[];
@@ -197,15 +275,24 @@ export default class Main extends Controller {
 
   /** One click / Enter / Space handler on the map: which place was chosen? */
   private listen(map: HTML): void {
-    const root = map.getDomRef() as unknown as DomElement | null;
-    if (!root || (root as unknown as { huntListening?: boolean }).huntListening) return;
-    (root as unknown as { huntListening?: boolean }).huntListening = true;
+    this.listenFor(map, "data-place", (id) => void this.openPlace(id));
+  }
+
+  /**
+   * Click, Enter and Space on an element with the given attribute inside an HTML control's SVG
+   * (once per SVG: the SVG is replaced when it is re-drawn).
+   */
+  private listenFor(html: HTML, attribute: string, handler: (value: string) => void): void {
+    const root = html.getDomRef() as unknown as DomElement | null;
+    const flags = root as unknown as Record<string, boolean> | null;
+    if (!root || !flags || flags[`hunt-${attribute}`]) return;
+    flags[`hunt-${attribute}`] = true;
     const choose = (event: DomEvent): void => {
-      const place = (event.target as DomElement | null)?.closest?.("[data-place]");
-      const id = place?.getAttribute?.("data-place");
-      if (!id) return;
+      const element = (event.target as DomElement | null)?.closest?.(`[${attribute}]`);
+      const value = element?.getAttribute?.(attribute);
+      if (value === null || value === undefined) return;
       event.preventDefault();
-      void this.openPlace(id);
+      handler(value);
     };
     root.addEventListener("click", choose);
     root.addEventListener("keydown", (event) => {
@@ -227,6 +314,7 @@ export default class Main extends Controller {
       hasVillagers: story.villagers.length > 0,
       mystery: story.mystery,
       visited: stamps.includes(id),
+      game: story.game ?? "",
     });
     const dialog = await this.getPlaceDialog();
     dialog.open();

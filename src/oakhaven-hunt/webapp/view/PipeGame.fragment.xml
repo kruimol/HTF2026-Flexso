@@ -1,0 +1,19 @@
+<core:FragmentDefinition xmlns="sap.m" xmlns:core="sap.ui.core">
+    <!-- The pipe puzzle at Silverbrook Spring: turn the pipes until the water reaches Oakhaven -->
+    <Dialog id="pipeGame" title="{i18n>pipesTitle}" contentWidth="44rem" class="mrTheme sapUiContentPadding" draggable="false" resizable="false">
+        <content>
+            <VBox id="pipeContent">
+                <Text id="pipeHowTo" text="{i18n>pipesHowTo}" class="huntSays sapUiSmallMarginBottom" />
+                <core:HTML id="pipeBoard" content="{hunt>/game/svg}" sanitizeContent="false" preferDOM="false" />
+                <HBox id="pipeStatus" justifyContent="SpaceBetween" alignItems="Center" class="sapUiSmallMarginTop">
+                    <ObjectStatus id="pipeMoves" text="{i18n>pipesMoves} {hunt>/game/moves}" icon="sap-icon://ti/rotate-clockwise" state="Information" />
+                </HBox>
+                <MessageStrip id="pipeWin" text="{i18n>pipesWin}" type="Success" showIcon="true" visible="{hunt>/game/solved}" class="sapUiSmallMarginTop" />
+            </VBox>
+        </content>
+        <buttons>
+            <Button id="pipeNew" text="{i18n>pipesNew}" icon="sap-icon://ti/refresh" press=".onNewPuzzle" />
+            <Button id="pipeClose" text="{i18n>close}" type="Emphasized" press=".onCloseGame" />
+        </buttons>
+    </Dialog>
+</core:FragmentDefinition>

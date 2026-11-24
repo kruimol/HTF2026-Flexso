@@ -20,16 +20,18 @@
 
                 <Title id="mysteryTitle" text="{i18n>mystery}" level="H3" class="mrHeading sapUiSmallMarginTop sapUiTinyMarginBottom" />
                 <Text id="mysteryText" text="{hunt>/place/mystery}" />
-                <ObjectStatus id="puzzleSoon" text="{i18n>puzzleSoon}" icon="sap-icon://ti/lock" state="Information" class="sapUiTinyMarginTop" />
+                <ObjectStatus id="puzzleSoon" text="{i18n>puzzleSoon}" icon="sap-icon://ti/lock" state="Information" class="sapUiTinyMarginTop" visible="{= !${hunt>/place/game} }" />
+                <ObjectStatus id="puzzleReady" text="{= ${hunt>/place/visited} ? ${i18n>puzzleSolved} : ${i18n>puzzleReady} }" icon="sap-icon://ti/puzzle" state="Success" class="sapUiTinyMarginTop" visible="{= !!${hunt>/place/game} }" />
             </VBox>
         </content>
-        <beginButton>
+        <buttons>
+            <!-- A place with a game: play it to earn the stamp. Without a game (yet): the stamp is free. -->
+            <Button id="playButton" text="{= ${hunt>/place/visited} ? ${i18n>playAgain} : ${i18n>play} }" icon="sap-icon://ti/player-play"
+                type="Emphasized" visible="{= !!${hunt>/place/game} }" press=".onPlay" />
             <Button id="stampButton" text="{= ${hunt>/place/visited} ? ${i18n>stampDone} : ${i18n>stampCollect} }"
                 icon="{= ${hunt>/place/visited} ? 'sap-icon://ti/circle-check' : 'sap-icon://ti/rosette' }"
-                type="Emphasized" enabled="{= !${hunt>/place/visited} }" press=".onCollectStamp" />
-        </beginButton>
-        <endButton>
+                type="Emphasized" enabled="{= !${hunt>/place/visited} }" visible="{= !${hunt>/place/game} }" press=".onCollectStamp" />
             <Button id="closeButton" text="{i18n>close}" press=".onCloseDialog" />
-        </endButton>
+        </buttons>
     </Dialog>
 </core:FragmentDefinition>

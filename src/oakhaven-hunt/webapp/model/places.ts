@@ -25,6 +25,8 @@ export interface PlaceStory {
   readonly villagers: readonly Villager[];
   /** The mystery that will become this place's puzzle. */
   readonly mystery: string;
+  /** The game of this place: solve it to earn the stamp. No game yet: the stamp is free. */
+  readonly game?: "pipes";
 }
 
 const MAREN: Villager = {
@@ -63,6 +65,7 @@ export const PLACE_STORIES: readonly PlaceStory[] = [
     about: "The clear spring in the hills where all of Oakhaven's water comes from.",
     villagers: [MAREN],
     mystery: "Behind the reeds is an old stone door, sealed shut. Someone signed it with two letters: W. S. Who could that be?",
+    game: "pipes",
   },
   {
     name: "North Mill House",
