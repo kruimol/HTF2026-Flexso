@@ -26,7 +26,7 @@ export interface PlaceStory {
   /** The mystery that will become this place's puzzle. */
   readonly mystery: string;
   /** The game of this place: solve it to earn the stamp. No game yet: the stamp is free. */
-  readonly game?: "pipes" | "words" | "sheep" | "market";
+  readonly game?: "pipes" | "words" | "sheep" | "market" | "memory";
 }
 
 const MAREN: Villager = {
@@ -79,7 +79,8 @@ export const PLACE_STORIES: readonly PlaceStory[] = [
     kind: "residential",
     about: "Five little houses where many villagers live.",
     villagers: [],
-    mystery: "Every house has a coloured roof. Which colour appears twice?",
+    mystery: "Who lives in which house? Turn the cards and find the pairs of the people and houses of Oakhaven!",
+    game: "memory",
   },
   {
     name: "Deepwood Forest",

@@ -300,3 +300,35 @@ body {
 .mrAwning0Line { stroke: #e98c8c; }
 .mrAwning1Line { stroke: #7fb2e5; }
 .mrAwning2Line { stroke: #d4a24c; }
+
+/* ---------- Memory (North Residential Area) ---------- */
+.mmWrap { max-width: 30rem; margin: 0 auto; }
+.mmWrap svg { display: block; width: 100%; height: auto; }
+.mmCard { cursor: pointer; outline: none; }
+.mmOpen { cursor: default; }
+.mmBack { fill: #c0703f; stroke: #5a2f14; stroke-width: 3; }
+.mmCard:hover .mmBack, .mmCard:focus-visible .mmBack { fill: #d4884f; stroke: #d4a24c; stroke-width: 5; }
+.mmBackFrame { fill: none; stroke: #d4a24c; stroke-width: 2; stroke-dasharray: 6 5; }
+.mmOak { fill: #5d9a3c; stroke: #2e4f1c; stroke-width: 3; }
+.mmTrunk { fill: #5a3a1a; }
+.mmFront { fill: #f3e6c8; stroke: #c0703f; stroke-width: 3; }
+.mmMatched .mmFront { stroke: #5d9a3c; stroke-width: 6; }
+.mmName { fill: #3a2614; font-family: Cinzel, Georgia, serif; font-size: 17px; font-weight: bold; text-anchor: middle; }
+.mmFace { fill: #f1d9a6; stroke: #7a5121; stroke-width: 2; }
+.mmCoatMaren { fill: #3f8fd6; }
+.mmCoatTobin { fill: #e8c39a; }
+.mmCoatRowan { fill: #7a4a8c; }
+.mmCoatIlse { fill: #5d9a3c; }
+.mmDrop { fill: #3f8fd6; stroke: #123a63; stroke-width: 2; }
+.mmBread { fill: #d9a35b; stroke: #7a5121; stroke-width: 2; }
+.mmCrust { stroke: #7a5121; stroke-width: 2; fill: none; }
+.mmHat { fill: #fff; stroke: #aaa; stroke-width: 2; }
+.mmChain { fill: none; stroke: #d4a24c; stroke-width: 3; }
+.mmMedal { fill: #d4a24c; stroke: #7a5121; }
+.mmBook { fill: #c0703f; stroke: #5a2f14; stroke-width: 2; }
+.mmBookLine { stroke: #f3e6c8; stroke-width: 2; }
+.mmGlasses { fill: none; stroke: #3a2614; stroke-width: 2; }
+.mmWindow { fill: #ffd36b; }
+
+/* Places without a game: scenery on the map, not part of the hunt */
+.huntScenery { pointer-events: none; }

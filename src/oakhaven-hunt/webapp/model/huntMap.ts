@@ -25,6 +25,8 @@ export interface HuntPlace {
   /** Every grid cell of this place (the forest has three). */
   readonly cells: readonly string[];
   readonly visited: boolean;
+  /** Only places with a game are buttons; the others are scenery (drawing and name). */
+  readonly clickable: boolean;
 }
 
 export interface HuntMapInput {
@@ -222,6 +224,10 @@ function drawPlace(place: HuntPlace, texts: HuntMapInput["texts"]): string {
   const badge = place.visited
     ? `<g transform="translate(${n(main.x + 92)},${n(main.y - 70)})"><circle class="huntStamp" r="26"/><path class="huntStampTick" d="M-11,0 L-3,9 L12,-9"/></g>`
     : `<g transform="translate(${n(main.x + 92)},${n(main.y - 70)})"><g>${star(26)}</g></g>`;
+  if (!place.clickable) {
+    const scenery = centres.map((c) => `<g transform="translate(${n(c.x)},${n(c.y)})">${draw()}</g>`).join("");
+    return `<g class="huntScenery" aria-hidden="true">${scenery}${label.replace('class="mrPlaceLabel"', 'class="mrPlaceLabel mrPlaceScenery"')}</g>`;
+  }
   const aria = `${place.name}, ${place.visited ? texts.visited : texts.visit}`;
   return `<g class="huntPlace" data-place="${esc(place.id)}" tabindex="0" role="button" aria-label="${esc(aria)}"><title>${esc(aria)}</title>${art}${label}${badge}</g>`;
 }

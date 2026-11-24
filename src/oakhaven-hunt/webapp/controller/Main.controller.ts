@@ -11,6 +11,7 @@ import { buildBoardSvg, isSolved, newPuzzle, turnCell, type PipeBoard } from "..
 import { buildWordGridSvg, newWordGrid, wordAt, type WordGrid } from "../model/wordSearch";
 import { answerOptions, buildMeadowSvg, newWave, type Wave } from "../model/sheepCount";
 import { buildMarketSvg, newMarket, productOf, stallOf, type MarketGame, type StallId } from "../model/marketConnect";
+import { buildMemorySvg, newDeck } from "../model/memoryGame";
 import type { Button$PressEvent } from "sap/m/Button";
 import type Button from "sap/m/Button";
 import { PLACE_STORIES, type PlaceStory } from "../model/places";
@@ -32,6 +33,9 @@ const PUZZLE_SIZE = 5;
 
 /** The word search: 10 × 10, words from the i18n file (so the language of the words can change). */
 const WORD_GRID_SIZE = 10;
+
+/** Memory: how long two cards that are not a pair stay open. */
+const MEMORY_PEEK_MS = 1100;
 
 /** Stamps are kept in this browser: a child's own progress (a convenience, not village data). */
 const STAMPS_KEY = "oakhaven.hunt.stamps";
@@ -104,6 +108,11 @@ export default class Main extends Controller {
   private market?: MarketGame;
   private matched: Record<string, StallId> = {};
   private picked: string | null = null;
+  private memoryDialog?: Dialog;
+  private deck: string[] = [];
+  private memOpen: number[] = [];
+  private memMatched: number[] = [];
+  private memBusy = false;
   private cells = new Map<string, string[]>();
   private pipes: HuntPipe[] = [];
   private listening = false;
@@ -120,6 +129,7 @@ export default class Main extends Controller {
         words: { svg: "", list: [], found: 0, total: 0, solved: false },
         sheep: { svg: "", phase: "ready", options: [], message: "" },
         market: { svg: "", done: 0, total: 0, solved: false, message: "", wrong: false },
+        memory: { svg: "", tries: 0, pairs: 0, total: 0, solved: false },
       }),
       "hunt",
     );
@@ -132,6 +142,7 @@ export default class Main extends Controller {
     this.wordDialog?.destroy();
     this.sheepDialog?.destroy();
     this.marketDialog?.destroy();
+    this.memoryDialog?.destroy();
     if (this.sheepTimer) clearTimeout(this.sheepTimer);
   }
 
@@ -141,6 +152,11 @@ export default class Main extends Controller {
   public async onPlay(): Promise<void> {
     this.placeDialog?.close();
     const game = this.getHuntModel().getProperty("/place/game") as string;
+    if (game === "memory") {
+      await this.newMemoryGame();
+      (await this.getMemoryDialog()).open();
+      return;
+    }
     if (game === "market") {
       await this.newMarketGame();
       (await this.getMarketDialog()).open();
@@ -158,6 +174,84 @@ export default class Main extends Controller {
     }
     this.newBoard();
     (await this.getGameDialog()).open();
+  }
+
+  /* ------------------------------ Memory (North Residential Area) ------------------------------ */
+
+  public async onNewMemory(): Promise<void> {
+    await this.newMemoryGame();
+  }
+
+  public onCloseMemory(): void {
+    this.memoryDialog?.close();
+  }
+
+  private async newMemoryGame(): Promise<void> {
+    this.deck = newDeck(Math.floor(Math.random() * 1_000_000) + 1);
+    this.memOpen = [];
+    this.memMatched = [];
+    this.memBusy = false;
+    const model = this.getHuntModel();
+    model.setProperty("/memory/tries", 0);
+    model.setProperty("/memory/pairs", 0);
+    model.setProperty("/memory/total", this.deck.length / 2);
+    model.setProperty("/memory/solved", false);
+    await this.drawMemory();
+  }
+
+  /** Turn a card. Two open: a pair stays open, otherwise both turn back after a moment. */
+  private async turnCard(index: number): Promise<void> {
+    const model = this.getHuntModel();
+    if (this.memBusy || model.getProperty("/memory/solved") || this.memOpen.includes(index) || this.memMatched.includes(index)) return;
+    this.memOpen = [...this.memOpen, index];
+    if (this.memOpen.length < 2) {
+      await this.drawMemory();
+      return;
+    }
+    model.setProperty("/memory/tries", (model.getProperty("/memory/tries") as number) + 1);
+    const [a, b] = this.memOpen;
+    if (this.deck[a] === this.deck[b]) {
+      this.memMatched = [...this.memMatched, a, b];
+      this.memOpen = [];
+      const pairs = this.memMatched.length / 2;
+      model.setProperty("/memory/pairs", pairs);
+      if (pairs === this.deck.length / 2) {
+        model.setProperty("/memory/solved", true);
+        await this.earnStamp(); // every pair found: the stamp of the neighbourhood
+      }
+      await this.drawMemory();
+      return;
+    }
+    // Not a pair: show both for a moment, then turn them back.
+    this.memBusy = true;
+    await this.drawMemory();
+    setTimeout(() => {
+      this.memOpen = [];
+      this.memBusy = false;
+      void this.drawMemory();
+    }, MEMORY_PEEK_MS);
+  }
+
+  private async drawMemory(): Promise<void> {
+    const bundle = await this.getBundle();
+    this.getHuntModel().setProperty("/memory/svg", `<div class="mmWrap">${buildMemorySvg(this.deck, this.memOpen, this.memMatched, {
+      title: this.text(bundle, "memoryTitle"),
+      card: this.text(bundle, "memoryCard"),
+    })}</div>`);
+    const html = this.byId("memoryBoard") as HTML | undefined;
+    if (html) setTimeout(() => this.listenFor(html, "data-card", (value) => void this.turnCard(Number(value))), 0);
+  }
+
+  private async getMemoryDialog(): Promise<Dialog> {
+    if (!this.memoryDialog) {
+      const view = this.getView();
+      if (!view) throw new Error("view not ready");
+      this.memoryDialog = (await Fragment.load({ id: view.getId(), name: "oakhaven.hunt.view.MemoryGame", controller: this })) as Dialog;
+      view.addDependent(this.memoryDialog);
+      const html = this.byId("memoryBoard") as HTML | undefined;
+      html?.attachAfterRendering(() => this.listenFor(html, "data-card", (value) => void this.turnCard(Number(value))));
+    }
+    return this.memoryDialog;
   }
 
   /* ------------------------------ Products to stalls (Central Market Square) ------------------------------ */
@@ -510,6 +604,7 @@ export default class Main extends Controller {
         kind: story.kind,
         cells: this.cells.get(story.name) ?? FALLBACK_CELLS[story.name] ?? [],
         visited: stamps.includes(id),
+        clickable: Boolean(story.game), // only places with a game are part of the hunt
       };
     });
   }
@@ -518,8 +613,9 @@ export default class Main extends Controller {
   private render(bundle: ResourceBundle): void {
     const model = this.getHuntModel();
     const stamps = model.getProperty("/stamps") as string[];
-    const total = PLACE_STORIES.length;
-    const found = PLACE_STORIES.filter((story) => stamps.includes(idOf(story.name))).length;
+    const huntPlaces = PLACE_STORIES.filter((story) => story.game);
+    const total = huntPlaces.length;
+    const found = huntPlaces.filter((story) => stamps.includes(idOf(story.name))).length;
     model.setProperty("/progress", this.text(bundle, "progress", [found, total]));
     model.setProperty("/allFound", found === total);
 
@@ -576,7 +672,7 @@ export default class Main extends Controller {
 
   private async openPlace(id: string): Promise<void> {
     const story = PLACE_STORIES.find((candidate) => idOf(candidate.name) === id) as PlaceStory | undefined;
-    if (!story) return;
+    if (!story?.game) return; // scenery, not part of the hunt
     const model = this.getHuntModel();
     const stamps = model.getProperty("/stamps") as string[];
     model.setProperty("/place", {
