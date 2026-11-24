@@ -101,18 +101,39 @@ const HEIGHT = 360;
 const LANE_Y = [140, 210, 285];
 const LANE_SCALE = [0.8, 0.9, 1];
 
+/** Wool: a cloud of puffs around the body, drawn twice (a soft outline, then the white wool). */
+const WOOL: ReadonlyArray<readonly [number, number, number]> = [
+  [-26, -2, 13], [-16, -14, 14], [0, -18, 15], [16, -14, 14], [26, -2, 13],
+  [18, 10, 13], [0, 13, 14], [-18, 10, 13], [0, -2, 18],
+];
+
+/** A sheep facing right, around (0,0): shadow, legs that walk, woolly body, tail, friendly face. */
 function sheepArt(): string {
-  return (
-    `<g class="scLegs"><rect x="-22" y="14" width="7" height="22" rx="3"/><rect x="-6" y="16" width="7" height="20" rx="3"/>` +
-    `<rect x="8" y="16" width="7" height="20" rx="3"/><rect x="20" y="14" width="7" height="22" rx="3"/></g>` +
-    `<g class="scWool"><circle cx="-18" cy="0" r="16"/><circle cx="0" cy="-8" r="18"/><circle cx="18" cy="-2" r="16"/>` +
-    `<circle cx="-8" cy="10" r="15"/><circle cx="12" cy="10" r="15"/></g>` +
-    `<ellipse class="scHead" cx="38" cy="-4" rx="12" ry="10"/><circle class="scEye" cx="42" cy="-7" r="2.2"/>`
-  );
+  const legs =
+    `<rect class="scLeg scLegA" x="-22" y="12" width="7" height="24" rx="3.5"/>` +
+    `<rect class="scLeg scLegB" x="-10" y="14" width="7" height="22" rx="3.5"/>` +
+    `<rect class="scLeg scLegB" x="10" y="14" width="7" height="22" rx="3.5"/>` +
+    `<rect class="scLeg scLegA" x="21" y="12" width="7" height="24" rx="3.5"/>`;
+  const outline = WOOL.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r + 2.5}"/>`).join("");
+  const wool = WOOL.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join("");
+  const curls = [[-14, -6], [4, -10], [-4, 6], [14, 2]]
+    .map(([x, y]) => `<path class="scCurl" d="M${x - 4},${y} q4,-5 8,0"/>`).join("");
+  const head =
+    `<g transform="translate(36,-8)">` +
+    `<ellipse class="scEar" cx="-6" cy="-8" rx="8" ry="4" transform="rotate(-30,-6,-8)"/>` +
+    `<ellipse class="scHead" cx="4" cy="2" rx="12" ry="11"/>` +
+    `<circle class="scTuft" cx="-2" cy="-8" r="5"/><circle class="scTuft" cx="5" cy="-10" r="5"/>` +
+    `<ellipse class="scEar" cx="12" cy="-6" rx="7" ry="3.5" transform="rotate(30,12,-6)"/>` +
+    `<circle class="scEyeWhite" cx="8" cy="0" r="3.4"/><circle class="scPupil" cx="9" cy="0.5" r="1.8"/><circle class="scGlint" cx="9.6" cy="-0.4" r="0.7"/>` +
+    `<ellipse class="scNostril" cx="14" cy="7" rx="1.6" ry="1.1"/></g>`;
+  return `<ellipse class="scShadow" cx="0" cy="38" rx="34" ry="6"/>` + legs +
+    `<circle class="scTail" cx="-38" cy="-6" r="7"/>` +
+    `<g class="scWoolEdge">${outline}</g><g class="scWool">${wool}</g>${curls}` + head;
 }
 
 function dogArt(): string {
   return (
+    `<ellipse class="scShadow" cx="4" cy="34" rx="38" ry="6"/>` +
     `<g class="scDogLegs"><rect x="-22" y="8" width="7" height="24" rx="3"/><rect x="-8" y="10" width="7" height="22" rx="3"/>` +
     `<rect x="10" y="10" width="7" height="22" rx="3"/><rect x="22" y="8" width="7" height="24" rx="3"/></g>` +
     `<ellipse class="scDog" cx="0" cy="0" rx="34" ry="15"/><ellipse class="scDogWhite" cx="10" cy="6" rx="14" ry="8"/>` +

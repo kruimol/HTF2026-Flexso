@@ -263,10 +263,24 @@ body {
 .scGrass { fill: #5d7d3a; }
 .scSun { fill: #d4a24c; }
 .scPost, .scRail { fill: #8a6d4a; stroke: #3a2b1a; stroke-width: 2; }
-.scWool circle { fill: #f4f1ea; stroke: #3a3a3a; stroke-width: 2; }
-.scHead { fill: #2e2a28; }
+.scShadow { fill: rgba(20, 30, 10, 0.35); }
+.scWoolEdge circle { fill: #b9b2a4; }
+.scWool circle { fill: #fbf8f1; }
+.scCurl { fill: none; stroke: #d9d2c4; stroke-width: 2; stroke-linecap: round; }
+.scTail { fill: #fbf8f1; stroke: #b9b2a4; stroke-width: 2; }
+.scHead { fill: #3a312c; }
+.scEar { fill: #4a3f38; }
+.scTuft { fill: #fbf8f1; }
+.scEyeWhite { fill: #fff; }
+.scPupil { fill: #1a120b; }
+.scGlint { fill: #fff; }
+.scNostril { fill: #1a120b; }
 .scEye { fill: #f3e6c8; }
-.scLegs rect, .scDogLegs rect { fill: #2e2a28; }
+.scLeg, .scDogLegs rect { fill: #3a312c; }
+/* Walking legs: the diagonal pairs swing in turn, from the hip. */
+.scLeg { transform-box: fill-box; transform-origin: 50% 0; animation: scStep 0.36s ease-in-out infinite alternate; }
+.scLegB { animation-delay: -0.36s; }
+@keyframes scStep { from { transform: rotate(-20deg); } to { transform: rotate(20deg); } }
 .scDog { fill: #7a4a24; stroke: #2a1a0c; stroke-width: 2; }
 .scDogWhite { fill: #f4f1ea; }
 .scDogTail { fill: none; stroke: #7a4a24; stroke-width: 7; stroke-linecap: round; }
