@@ -166,8 +166,11 @@ export function buildMeadowSvg(wave: Wave | null, running: boolean, title: strin
       .map((runner) => {
         const art = runner.kind === "sheep" ? sheepArt() : dogArt();
         const style = `animation-duration:${runner.duration}s;animation-delay:${runner.delay}s`;
-        return `<g transform="translate(0,${LANE_Y[runner.lane]}) scale(${LANE_SCALE[runner.lane]})">` +
-          `<g class="scRunner" style="${style}"><g class="${runner.hop ? "scHop" : "scTrot"}" style="animation-delay:${runner.delay}s">${art}</g></g></g>`;
+        // The lane only shrinks the animal, not the road: every runner crosses the whole meadow
+        // (the run is in screen units, outside the scale) and ends well past the right edge.
+        return `<g transform="translate(0,${LANE_Y[runner.lane]})">` +
+          `<g class="scRunner" style="${style}"><g transform="scale(${LANE_SCALE[runner.lane]})">` +
+          `<g class="${runner.hop ? "scHop" : "scTrot"}" style="animation-delay:${runner.delay}s">${art}</g></g></g></g>`;
       })
       .join("");
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="${esc(title)}">` +

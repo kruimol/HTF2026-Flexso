@@ -287,8 +287,9 @@ body {
 .scDogEar { fill: #3a2414; }
 .scNose { fill: #111; }
 /* Each runner starts off-screen left and runs to the right after its own delay (set inline). */
-.scRunner { transform: translateX(-140px); animation-name: scRun; animation-timing-function: linear; animation-fill-mode: both; }
-@keyframes scRun { from { transform: translateX(-140px); } to { transform: translateX(1140px); } }
+.scRunner { transform: translateX(-160px); animation-name: scRun; animation-timing-function: linear; animation-fill-mode: both; }
+/* From well before the left edge to well past the right edge (the meadow is 1000 wide). */
+@keyframes scRun { from { transform: translateX(-160px); } to { transform: translateX(1180px); } }
 .scHop { animation: scHop 0.45s ease-in-out infinite; }
 .scTrot { animation: scTrot 0.3s ease-in-out infinite; }
 @keyframes scHop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
