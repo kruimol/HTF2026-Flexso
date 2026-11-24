@@ -31,7 +31,8 @@ export interface Wave {
 }
 
 /** One round: how many sheep, how fast (seconds to cross), over how long they arrive, how many dogs. */
-const SETTINGS = { min: 5, max: 8, slow: 4.2, fast: 3.2, spread: 5.5, dogs: 1 };
+// Hard on purpose: many sheep, fast, in groups that overlap, and three dogs to fool you.
+const SETTINGS = { min: 14, max: 22, slow: 3.6, fast: 2.4, spread: 8, dogs: 3, maxGroup: 4 };
 
 function random(seed: number): () => number {
   // Mix the seed first: small seeds would otherwise give small first numbers.
@@ -58,9 +59,9 @@ export function newWave(seed: number): Wave {
   const runners: RunnerInWave[] = [];
   let time = 0.3;
   while (runners.length < sheep) {
-    // A group of 1–3 sheep at almost the same moment, in different lanes.
-    const group = Math.min(sheep - runners.length, 1 + Math.floor(rnd() * 3));
-    const lanes = [0, 1, 2].sort(() => rnd() - 0.5);
+    // A group of 1–4 sheep at almost the same moment; with 4, two share a lane and overlap.
+    const group = Math.min(sheep - runners.length, 1 + Math.floor(rnd() * settings.maxGroup));
+    const lanes = [0, 1, 2, Math.floor(rnd() * 3)].sort(() => rnd() - 0.5);
     for (let i = 0; i < group; i++) {
       runners.push({
         kind: "sheep",
@@ -70,7 +71,7 @@ export function newWave(seed: number): Wave {
         hop: rnd() < 0.5,
       });
     }
-    time += settings.spread / Math.max(1, sheep / 1.6) * between(0.6, 1.4);
+    time += settings.spread / Math.max(1, sheep / 2.5) * between(0.6, 1.4);
   }
   for (let i = 0; i < settings.dogs; i++) {
     runners.push({
