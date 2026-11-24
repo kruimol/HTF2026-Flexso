@@ -1,0 +1,9 @@
+{
+  "name": "oakhaven.waterapp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Morning Round — Maren's water app: which pipe first, then which, and why",
+  "devDependencies": {
+    "ui5-tooling-transpile": "^3.13.1"
+  }
+}

@@ -1,0 +1,28 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core">
+    <!-- 💧 Maren logs a repair after a job: which pipe, what was wrong, the date and who did it.
+         Big fields and buttons: she fills this in on her phone, outside. -->
+    <Dialog id="logRepairDialog" title="{ parts: ['i18n>repairTitle', 'repair>/pipeID'], formatter: 'formatMessage' }"
+        contentWidth="26rem" class="mrTheme sapUiContentPadding" core:require="{ formatMessage: 'sap/base/strings/formatMessage' }">
+        <content>
+            <VBox id="repairForm" class="mrRepairForm">
+                <Label id="repairIssueLabel" text="{i18n>repairIssue}" labelFor="repairIssue" required="true" />
+                <TextArea id="repairIssue" value="{repair>/issue}" rows="3" width="100%" growing="true"
+                    placeholder="{i18n>repairIssuePlaceholder}" valueLiveUpdate="true" />
+                <Label id="repairDateLabel" text="{i18n>repairDate}" labelFor="repairDate" required="true" class="sapUiSmallMarginTop" />
+                <DatePicker id="repairDate" value="{repair>/repairDate}" valueFormat="yyyy-MM-dd" displayFormat="medium"
+                    maxDate="{repair>/maxDate}" width="100%" />
+                <Label id="repairByLabel" text="{i18n>repairBy}" labelFor="repairBy" required="true" class="sapUiSmallMarginTop" />
+                <Input id="repairBy" value="{repair>/repairedBy}" width="100%" valueLiveUpdate="true" />
+            </VBox>
+        </content>
+        <beginButton>
+            <Button id="repairSave" text="{i18n>repairSave}" type="Emphasized" icon="sap-icon://ti/tool" press=".onSaveRepair"
+                enabled="{= !!${repair>/issue} &amp;&amp; !!${repair>/repairedBy} &amp;&amp; !!${repair>/repairDate} &amp;&amp; !${repair>/busy} }" />
+        </beginButton>
+        <endButton>
+            <Button id="repairCancel" text="{i18n>repairCancel}" press=".onCancelRepair" />
+        </endButton>
+    </Dialog>
+</core:FragmentDefinition>
